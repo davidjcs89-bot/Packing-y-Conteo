@@ -30,7 +30,7 @@ export default function Articulos() {
     return ordenar(f, modo);
   }, [arts, q, fProv, modo]);
 
-  const renderItem = ({ item: a }: { item: Articulo }) => {
+  const renderItem = ({ item: a, index }: { item: Articulo; index: number }) => {
     const p = prov(a.proveedorId);
     const base = costoBase(a, cfg, viajes, arts);
     const pm = precio(a, 'mayoreo', p, cfg, base);
@@ -45,7 +45,10 @@ export default function Articulos() {
         )}
         <View style={{ flex: 1, gap: 3 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-            <T tipo="mono">{a.estilo || '—'}</T>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={{ minWidth: 22, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden', backgroundColor: c.line, color: c.muted, fontSize: 11, fontWeight: '700', fontFamily: 'Menlo', textAlign: 'center' }}>{index + 1}</Text>
+              <T tipo="mono">{a.estilo || '—'}</T>
+            </View>
             <Text style={{ color: tieneStock(a) && !totalStock(a) ? c.danger : c.accent, fontWeight: '800', fontSize: 17 }}>{tieneStock(a) ? totalStock(a) : '—'}</Text>
           </View>
           <T numberOfLines={1} style={{ fontWeight: '600' }}>
