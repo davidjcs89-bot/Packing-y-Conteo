@@ -70,7 +70,7 @@ export default function Ajustes() {
           <T tipo="chico">Todo se guarda en la base local del teléfono y funciona sin internet.</T>
           <T tipo="chico">Cambios pendientes de sincronizar: {pendientes} (la sincronización con la nube llega en la Fase 4).</T>
         </Tarjeta>
-        <T tipo="chico" style={{ textAlign: 'center' }}>Packing-y-Conteo · Fase 1</T>
+        <T tipo="chico" style={{ textAlign: 'center' }}>Packing-y-Conteo de productos ya comprados · Fase 1</T>
       </Pantalla>
     </View>
   );
