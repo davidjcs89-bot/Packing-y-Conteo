@@ -28,6 +28,7 @@ function Navegacion() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="articulo/[id]" options={{ title: 'Artículo', headerBackTitle: 'Atrás' }} />
         <Stack.Screen name="viaje/[id]" options={{ title: 'Viaje', headerBackTitle: 'Atrás' }} />
+        <Stack.Screen name="movimiento/[id]" options={{ title: 'Movimiento', headerBackTitle: 'Atrás', presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );

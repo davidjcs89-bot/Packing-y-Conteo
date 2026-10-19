@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { EditorComposicion } from '@/components/composicion';
+import { HistorialArticulo } from '@/components/historial';
 import { TablaStock } from '@/components/tabla-stock';
 import { Boton, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import {
@@ -300,6 +301,14 @@ export default function EditorArticulo() {
                 onLlenar={(n) => setCant(Object.fromEntries(Object.keys(valores).map((k) => [k, n])))}
               />
             </Tarjeta>
+            {exist ? (
+              <Fila>
+                <Boton titulo="− Venta" onPress={() => router.push({ pathname: '/movimiento/[id]', params: { id: a.id, tipo: 'venta' } })} style={{ flex: 1 }} />
+                <Boton titulo="+ Entrada" onPress={() => router.push({ pathname: '/movimiento/[id]', params: { id: a.id, tipo: 'entrada' } })} style={{ flex: 1 }} />
+                <Boton titulo="Conteo" onPress={() => router.push({ pathname: '/movimiento/[id]', params: { id: a.id, tipo: 'ajuste' } })} style={{ flex: 1 }} />
+              </Fila>
+            ) : null}
+            {!esNuevo ? <HistorialArticulo artId={a.id} /> : null}
             {!esNuevo ? <Boton tipo="peligro" titulo="Eliminar artículo" onPress={eliminar} /> : null}
           </>
         ) : tab === 'comp' ? (

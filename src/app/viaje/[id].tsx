@@ -2,6 +2,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 
+import { SelectorFecha } from '@/components/fecha';
 import { Boton, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import { CATS_GASTO, gastoUsd, money, num, resumenViaje, uid, uniq } from '@/lib/calc';
 import { useStore } from '@/lib/store';
@@ -79,8 +80,10 @@ export default function EditorViaje() {
       <Pantalla>
         <Campo etiqueta="Nombre del viaje" value={v.nombre} onChangeText={(x) => set({ nombre: x })} placeholder="Guangzhou octubre 2026" />
         <Fila>
-          <Campo etiqueta="Desde" value={v.desde || ''} onChangeText={(x) => set({ desde: x })} placeholder="2026-10-01" keyboardType="numbers-and-punctuation" />
-          <Campo etiqueta="Hasta" value={v.hasta || ''} onChangeText={(x) => set({ hasta: x })} placeholder="2026-10-15" keyboardType="numbers-and-punctuation" />
+          <SelectorFecha etiqueta="Desde" valor={v.desde} onCambio={(x) => set({ desde: x })} />
+          <SelectorFecha etiqueta="Hasta" valor={v.hasta} onCambio={(x) => set({ hasta: x })} />
+        </Fila>
+        <Fila>
           <Campo etiqueta="Cambio ¥/USD" value={tcTxt} onChangeText={(x) => { setTcTxt(x); set({ tc: num(x) }); }} placeholder="6.70" keyboardType="decimal-pad" />
         </Fila>
 

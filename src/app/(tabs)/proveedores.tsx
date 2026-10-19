@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 
+import { fechaCorta } from '@/components/fecha';
 import { Boton, Cabecera, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import { fmtF, money, multsDe, num, resumenViaje, tieneStock, totalStock, uid } from '@/lib/calc';
 import { useStore } from '@/lib/store';
@@ -96,7 +97,7 @@ function Viajes() {
             <Tarjeta key={v.id} onPress={() => router.push({ pathname: '/viaje/[id]', params: { id: v.id } })} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <T style={{ fontWeight: '700' }}>{v.nombre || 'Viaje'}</T>
-                <T tipo="chico">{[[v.desde, v.hasta].filter(Boolean).join(' → '), n ? `${n} art. · ${r.piezas} pzs` : 'sin artículos'].filter(Boolean).join(' · ')}</T>
+                <T tipo="chico">{[[fechaCorta(v.desde), fechaCorta(v.hasta)].filter(Boolean).join(' → '), n ? `${n} art. · ${r.piezas} pzs` : 'sin artículos'].filter(Boolean).join(' · ')}</T>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
                 <T style={{ fontWeight: '800', fontFamily: 'Menlo' }}>{money(r.gastos)}</T>

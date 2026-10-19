@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FlatList, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Buscador } from '@/components/buscador';
+import { FilaMovimiento } from '@/components/historial';
 import { Cabecera, Chip, Chips, T, Tarjeta, Vacio } from '@/components/ui';
 import { costoBase, ejes, money, ordenar, precio, sinAcento, skey, tieneStock, totalStock } from '@/lib/calc';
 import { useStore } from '@/lib/store';
@@ -32,6 +33,11 @@ export default function Bodega() {
   const piezas = conSt.reduce((x, a) => x + totalStock(a), 0);
   const valCosto = conSt.reduce((x, a) => x + totalStock(a) * (costoBase(a, cfg, viajes, arts) || 0), 0);
   const valMay = conSt.reduce((x, a) => x + totalStock(a) * (precio(a, 'mayoreo', prov(a.proveedorId), cfg, costoBase(a, cfg, viajes, arts)) || 0), 0);
+
+  const hoy0 = new Date().setHours(0, 0, 0, 0);
+  const movHoy = movs.filter((m) => m.at >= hoy0);
+  const vendHoy = -movHoy.filter((m) => m.tipo === 'venta').reduce((x, m) => x + m.total, 0);
+  const entHoy = movHoy.filter((m) => m.tipo === 'entrada').reduce((x, m) => x + m.total, 0);
 
   const lista = useMemo(() => {
     const t = sinAcento(q.trim());
@@ -65,6 +71,18 @@ export default function Bodega() {
             ))}
           </View>
         ) : null}
+        {tieneStock(a) ? (
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 2 }}>
+            {([['venta', '− Venta'], ['entrada', '+ Entrada'], ['ajuste', 'Conteo']] as const).map(([t, l]) => (
+              <Pressable
+                key={t}
+                onPress={() => router.push({ pathname: '/movimiento/[id]', params: { id: a.id, tipo: t } })}
+                style={({ pressed }) => ({ flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: c.line, backgroundColor: c.bg, opacity: pressed ? 0.6 : 1 })}>
+                <Text style={{ fontWeight: '700', fontSize: 13, color: t === 'venta' ? c.danger : t === 'entrada' ? c.accent : c.ink }}>{l}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </Tarjeta>
     );
   };
@@ -92,6 +110,11 @@ export default function Bodega() {
                   <T style={{ fontSize: 20, fontWeight: '800', fontFamily: 'Menlo' }}>{v}</T>
                 </View>
               ))}
+              <View style={{ width: '100%', borderTopWidth: 1, borderTopColor: c.line, paddingTop: 8 }}>
+                <T tipo="chico">
+                  Hoy: <Text style={{ color: c.danger, fontWeight: '800' }}>{vendHoy}</Text> vendidas · <Text style={{ color: c.accent, fontWeight: '800' }}>{entHoy}</Text> entradas
+                </T>
+              </View>
             </Tarjeta>
             <Buscador valor={q} onCambio={setQ} />
             <Chips scroll>
@@ -113,13 +136,7 @@ export default function Bodega() {
             <View style={{ marginTop: 16, gap: 6 }}>
               <T tipo="sub">Últimos movimientos</T>
               {movs.slice(0, 15).map((m) => (
-                <Tarjeta key={m.id} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                  <View style={{ flex: 1 }}>
-                    <T><T tipo="mono">{m.estilo}</T> {m.motivo}</T>
-                    <T tipo="chico">{new Date(m.at).toLocaleDateString('es-EC', { day: '2-digit', month: 'short' })} · {m.lineas.map((l) => `${l.color} ${l.talla} ${l.cant > 0 ? '+' : ''}${l.cant}`).join(', ')}</T>
-                  </View>
-                  <Text style={{ fontWeight: '800', color: m.total < 0 ? c.danger : c.accent }}>{m.total > 0 ? '+' : ''}{m.total}</Text>
-                </Tarjeta>
+                <FilaMovimiento key={m.id} m={m} conEstilo />
               ))}
             </View>
           ) : undefined
