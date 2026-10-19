@@ -39,7 +39,7 @@ export interface Resumen {
 }
 
 /** Preferencias que son de este teléfono y no se sobrescriben con las de la web. */
-const CONFIG_LOCAL = ['tema', 'ord_arts', 'ord_bod', 'busquedas', 'pVista', 'uso_nube'];
+const CONFIG_LOCAL = ['tema', 'ord_arts', 'ord_bod', 'busquedas', 'pVista', 'uso_nube', 'catTitulo', 'catContacto', 'catPorPag'];
 
 export async function elegirRespaldo() {
   const r = await DocumentPicker.getDocumentAsync({ type: ['application/zip', 'application/x-zip-compressed', 'public.zip-archive'], copyToCacheDirectory: true, multiple: false });

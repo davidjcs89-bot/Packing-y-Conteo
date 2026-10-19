@@ -14,6 +14,10 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Bodega</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="shippingbox.fill" md="inventory_2" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="catalogo">
+        <NativeTabs.Trigger.Label>Catálogo</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="book.fill" md="menu_book" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="proveedores">
         <NativeTabs.Trigger.Label>Proveedores</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="truck.box.fill" md="local_shipping" />
