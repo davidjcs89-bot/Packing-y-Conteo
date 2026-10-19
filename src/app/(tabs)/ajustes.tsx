@@ -1,19 +1,89 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 
 import { Boton, Cabecera, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
-import { ORDENES, fmtF, multsDe, num } from '@/lib/calc';
+import { COLORES_BASE, MULTS_MAY, MULTS_MEN, ORDENES, TALLAS_BASE, fmtF, multsDe, num, uniq } from '@/lib/calc';
 import { espacioLocal, leerUso, peso, type Uso } from '@/lib/uso';
 import { elegirRespaldo, importarRespaldo, type ModoImportar } from '@/lib/respaldo';
 import { useStore } from '@/lib/store';
+import { useColores } from '@/lib/theme';
 import type { Config } from '@/lib/types';
 
 function CampoNum({ etiqueta, k, placeholder }: { etiqueta: string; k: keyof Config; placeholder: string }) {
   const { cfg, setCfg } = useStore();
   const [v, setV] = useState(cfg[k] != null ? String(cfg[k]) : '');
   return <Campo etiqueta={etiqueta} value={v} onChangeText={setV} onEndEditing={() => setCfg({ [k]: num(v) })} keyboardType="decimal-pad" placeholder={placeholder} />;
+}
+
+function CampoTexto({ etiqueta, k, placeholder }: { etiqueta: string; k: keyof Config; placeholder: string }) {
+  const { cfg, setCfg } = useStore();
+  const [v, setV] = useState(cfg[k] != null ? String(cfg[k]) : '');
+  return <Campo etiqueta={etiqueta} value={v} onChangeText={setV} onEndEditing={() => setCfg({ [k]: v.trim() || null })} placeholder={placeholder} autoCapitalize="words" />;
+}
+
+/** Múltiplos de mayoreo o menudeo: ★ marca el predeterminado, × quita uno, y se pueden agregar nuevos. */
+function EditorMultiplos({ tipo }: { tipo: 'mayoreo' | 'menudeo' }) {
+  const c = useColores();
+  const { cfg, setCfg } = useStore();
+  const [nuevo, setNuevo] = useState('');
+  const kLista = tipo === 'mayoreo' ? 'multMay' : 'multMen';
+  const kDef = tipo === 'mayoreo' ? 'defMay' : 'defMen';
+  const lista = multsDe(cfg, tipo);
+  const def = Number(cfg[kDef]) || null;
+  const guardarLista = (l: number[]) => setCfg({ [kLista]: uniq(l).sort((x, y) => x - y) });
+  const agregar = () => {
+    const n = num(nuevo);
+    if (!n || n <= 1) return Alert.alert('Múltiplo no válido', 'Escribe un número mayor que 1, por ejemplo 3.5');
+    guardarLista([...lista, n]);
+    setNuevo('');
+  };
+  const quitar = (m: number) => {
+    if (lista.length <= 1) return;
+    guardarLista(lista.filter((x) => x !== m));
+    if (def === m) setCfg({ [kDef]: null });
+  };
+  return (
+    <Tarjeta style={{ gap: 8 }}>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T style={{ fontWeight: '700' }}>{tipo === 'mayoreo' ? 'Mayoreo' : 'Menudeo'}</T>
+        <T tipo="chico">{def ? `Predeterminado ×${fmtF(def)}` : 'Sin predeterminado'}</T>
+      </Fila>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {lista.map((m) => (
+          <View key={m} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, borderWidth: 1, borderColor: def === m ? c.accent : c.line, backgroundColor: def === m ? c.accentSoft : c.card, paddingLeft: 4, paddingRight: 6 }}>
+            <Pressable hitSlop={6} onPress={() => setCfg({ [kDef]: def === m ? null : m })} style={{ padding: 5 }}>
+              <Text style={{ color: c.gold, fontSize: 16 }}>{def === m ? '★' : '☆'}</Text>
+            </Pressable>
+            <Text style={{ color: c.ink, fontWeight: '700', fontFamily: 'Menlo' }}>×{fmtF(m)}</Text>
+            <Pressable hitSlop={6} onPress={() => quitar(m)} style={{ paddingLeft: 8, paddingVertical: 5 }}>
+              <Text style={{ color: c.muted, fontSize: 16 }}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+      <Fila style={{ alignItems: 'flex-end' }}>
+        <Campo value={nuevo} onChangeText={setNuevo} keyboardType="decimal-pad" placeholder="Nuevo múltiplo (ej. 3.5)" onSubmitEditing={agregar} />
+        <Boton tipo="primario" titulo="Agregar" onPress={agregar} />
+      </Fila>
+    </Tarjeta>
+  );
+}
+
+function ChipsDefecto({ etiqueta, k, opciones }: { etiqueta: string; k: 'tallasDef' | 'coloresDef'; opciones: string[] }) {
+  const { cfg, setCfg } = useStore();
+  const sel = (cfg[k] as string[] | undefined) || [];
+  return (
+    <View style={{ gap: 6 }}>
+      <T tipo="chico" style={{ fontWeight: '600' }}>{etiqueta}</T>
+      <Chips>
+        {uniq([...sel, ...opciones]).map((x) => (
+          <Chip key={x} titulo={x} activo={sel.includes(x)} onPress={() => setCfg({ [k]: sel.includes(x) ? sel.filter((y) => y !== x) : [...sel, x] })} />
+        ))}
+      </Chips>
+    </View>
+  );
 }
 
 function ImportarRespaldo() {
@@ -144,17 +214,29 @@ export default function Ajustes() {
           ))}
         </Chips>
 
-        <T tipo="label">Valores por defecto</T>
+        <T tipo="label">Múltiplos de precio</T>
+        <T tipo="chico">El costo en ¥ solo se convierte a USD. Los precios de mayoreo y menudeo se calculan siempre sobre el costo en USD. ★ = se usa cuando el proveedor no tiene su propio factor.</T>
+        <EditorMultiplos tipo="mayoreo" />
+        <EditorMultiplos tipo="menudeo" />
+        <Boton
+          tipo="link"
+          titulo="Restablecer múltiplos"
+          onPress={() =>
+            Alert.alert('Restablecer múltiplos', `Vuelven a ${MULTS_MAY.map((m) => '×' + fmtF(m)).join(' ')} (mayoreo) y ${MULTS_MEN.map((m) => '×' + fmtF(m)).join(' ')} (menudeo), sin predeterminado.`, [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Restablecer', onPress: () => setCfg({ multMay: null, multMen: null, defMay: null, defMen: null }) },
+            ])
+          }
+        />
+
+        <T tipo="label">Valores por defecto al crear un artículo</T>
         <Fila>
           <CampoNum etiqueta="Tipo de cambio ¥/USD" k="tcDef" placeholder="6.70" />
+          <CampoTexto etiqueta="Origen" k="origenDef" placeholder="China" />
         </Fila>
-
-        <T tipo="label">Múltiplos</T>
-        <Tarjeta style={{ gap: 6 }}>
-          <T tipo="chico">Mayoreo: {multsDe(cfg, 'mayoreo').map((m) => '×' + fmtF(m)).join(', ')}</T>
-          <T tipo="chico">Menudeo: {multsDe(cfg, 'menudeo').map((m) => '×' + fmtF(m)).join(', ')}</T>
-          <T tipo="chico">(La edición de múltiplos llega en la Fase 2.)</T>
-        </Tarjeta>
+        <ChipsDefecto etiqueta="Tallas que salen marcadas" k="tallasDef" opciones={uniq([...TALLAS_BASE, ...(cfg.tallasExtra || [])])} />
+        <ChipsDefecto etiqueta="Colores que salen marcados" k="coloresDef" opciones={uniq([...(cfg.coloresRec || []), ...COLORES_BASE]).slice(0, 14)} />
+        <T tipo="chico">Se aplican solo a artículos nuevos creados a mano.</T>
 
         <T tipo="label">Importación a Ecuador · tasas por pieza</T>
         <Fila>

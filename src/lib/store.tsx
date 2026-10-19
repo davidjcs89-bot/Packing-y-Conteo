@@ -20,6 +20,7 @@ interface Store {
   pendientes: number;
   prov: (id?: string) => Proveedor | undefined;
   guardarArt: (a: Articulo) => Promise<void>;
+  guardarArts: (lista: Articulo[]) => Promise<void>;
   borrarArt: (id: string) => Promise<void>;
   guardarProv: (p: Proveedor) => Promise<void>;
   borrarProv: (id: string) => Promise<void>;
@@ -87,6 +88,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await guardarDoc(db, 'articulos', a);
         setArts((l) => reemplazar(l, a));
         sumarPend();
+      },
+      guardarArts: async (lista) => {
+        if (!lista.length) return;
+        // Varios artículos en una sola transacción (por ejemplo, asignar un proveedor entero a un viaje).
+        await db.withTransactionAsync(async () => {
+          for (const a of lista) await guardarDoc(db, 'articulos', a);
+        });
+        const m = new Map(lista.map((a) => [a.id, a]));
+        setArts((l) => l.map((x) => m.get(x.id) ?? x));
+        setPendientes((n) => n + lista.length);
       },
       borrarArt: async (id) => {
         await borrarDoc(db, 'articulos', id);

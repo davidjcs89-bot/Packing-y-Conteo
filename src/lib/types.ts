@@ -68,6 +68,7 @@ export interface Gasto {
   desc?: string;
   monto: number | null;
   moneda: Moneda;
+  tc?: number | null;
 }
 
 export interface Viaje {
@@ -98,6 +99,12 @@ export interface Config {
   otrosKg?: number | null;
   ord_arts?: string;
   ord_bod?: string;
+  origenDef?: string;
+  tallasDef?: string[];
+  coloresDef?: string[];
+  tallasExtra?: string[];
+  coloresRec?: string[];
+  pVista?: 'compacta' | 'detalle';
   [k: string]: unknown;
 }
 

@@ -18,6 +18,9 @@ export const uniq = <T,>(a: T[]) => [...new Set(a)];
 /** Yuanes a dólares: se divide para el tipo de cambio y se redondea hacia arriba al dólar entero. */
 export const rmbAUsd = (v: number, tc: number) => Math.ceil(r2(v / tc));
 
+export const TALLAS_BASE = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'S/M', 'L/XL', 'Única'];
+export const COLORES_BASE = ['Negro', 'Blanco', 'Beige', 'Café', 'Gris', 'Azul', 'Rosa', 'Verde'];
+
 export const MULTS_MAY = [3, 4, 4.5, 5, 6];
 export const MULTS_MEN = [5, 6, 7, 8, 10];
 export const multsDe = (cfg: Config, tipo: 'mayoreo' | 'menudeo') =>
@@ -92,12 +95,20 @@ export interface ResumenViaje {
   porPieza: number;
 }
 
+export const CATS_GASTO: [string, string][] = [
+  ['pasajes', 'Pasajes'],
+  ['hospedaje', 'Hospedaje'],
+  ['comida', 'Comida'],
+  ['movilizacion', 'Movilización'],
+  ['otros', 'Otros'],
+];
+
 export const piezasArt = (a: Articulo) => Number(a.cantidad) || totalStock(a) || 1;
 
-export function gastoUsd(g: { monto: number | null; moneda: string }, v: Viaje, tcDef: number | null) {
+export function gastoUsd(g: { monto: number | null; moneda: string; tc?: number | null }, v: Viaje, tcDef: number | null) {
   const m = Number(g.monto) || 0;
   if (g.moneda === 'RMB') {
-    const tc = Number(v.tc) || tcDef || 0;
+    const tc = Number(g.tc) || Number(v.tc) || tcDef || 0;
     return tc ? m / tc : 0;
   }
   return m;

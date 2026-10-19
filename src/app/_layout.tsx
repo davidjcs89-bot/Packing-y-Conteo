@@ -25,6 +25,7 @@ function Navegacion() {
       <Stack screenOptions={{ headerTintColor: c.accent, headerStyle: { backgroundColor: c.surface }, headerTitleStyle: { color: c.ink } }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="articulo/[id]" options={{ title: 'Artículo', headerBackTitle: 'Atrás' }} />
+        <Stack.Screen name="viaje/[id]" options={{ title: 'Viaje', headerBackTitle: 'Atrás' }} />
       </Stack>
     </ThemeProvider>
   );

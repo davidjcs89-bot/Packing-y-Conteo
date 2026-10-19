@@ -4,9 +4,12 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
+import { EditorComposicion } from '@/components/composicion';
 import { TablaStock } from '@/components/tabla-stock';
 import { Boton, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import {
+  COLORES_BASE,
+  TALLAS_BASE,
   desglose,
   ejes,
   factorDe,
@@ -27,14 +30,11 @@ import { useStore } from '@/lib/store';
 import { useColores } from '@/lib/theme';
 import type { Articulo, Linea } from '@/lib/types';
 
-const TALLAS_BASE = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'S/M', 'L/XL', 'Única'];
-const COLORES_BASE = ['Negro', 'Blanco', 'Beige', 'Café', 'Gris', 'Azul', 'Rosa', 'Verde'];
-
 
 export default function EditorArticulo() {
   const c = useColores();
   const { id, prov: provParam } = useLocalSearchParams<{ id: string; prov?: string }>();
-  const { arts, provs, prov, cfg, viajes, guardarArt, borrarArt, registrarMov } = useStore();
+  const { arts, provs, prov, cfg, viajes, guardarArt, borrarArt, registrarMov, setCfg } = useStore();
   const existente = arts.find((a) => a.id === id);
   const esNuevo = !existente;
 
@@ -52,13 +52,14 @@ export default function EditorArticulo() {
           pMay: null,
           pMen: null,
           tc: cfg.tcDef ?? null,
-          colores: [],
-          tallas: [],
+          colores: [...(cfg.coloresDef || [])],
+          tallas: [...(cfg.tallasDef || [])],
+          origen: cfg.origenDef || '',
           fotos: [],
           creado: Date.now(),
         }
   );
-  const [tab, setTab] = useState<'basico' | 'precio'>('basico');
+  const [tab, setTab] = useState<'basico' | 'precio' | 'comp'>('basico');
   const [cant, setCant] = useState<Record<string, number> | null>(null); // null = sin tocar
   const [nuevoColor, setNuevoColor] = useState('');
   const [nuevaTalla, setNuevaTalla] = useState('');
@@ -155,6 +156,14 @@ export default function EditorArticulo() {
           if (lin.length) await registrarMov(datos, 'ajuste', lin, 'Ajuste desde el artículo');
         }
       }
+      // Historial de colores y tallas propias (solo en el teléfono).
+      const colNuevos = datos.colores.filter((x) => !COLORES_BASE.includes(x));
+      const talNuevas = datos.tallas.filter((x) => !TALLAS_BASE.includes(x));
+      if (colNuevos.length || talNuevas.length)
+        setCfg({
+          coloresRec: uniq([...colNuevos, ...(cfg.coloresRec || [])]).slice(0, 20),
+          tallasExtra: uniq([...(cfg.tallasExtra || []), ...talNuevas]),
+        });
       router.back();
     } catch (e) {
       Alert.alert('No se pudo guardar', String(e));
@@ -211,7 +220,7 @@ export default function EditorArticulo() {
           </View>
           <T tipo="muted">× {money(base ?? 0)} = <Text style={{ color: c.accent, fontWeight: '800' }}>{money(r2(totalCab * (base ?? 0)))}</Text></T>
         </View>
-        <Segmento opciones={[['basico', 'Básico'], ['precio', 'Costo y precio']]} valor={tab} onCambio={setTab} />
+        <Segmento opciones={[['basico', 'Básico'], ['precio', 'Costo y precio'], ['comp', 'Composición']]} valor={tab} onCambio={setTab} />
 
         {tab === 'basico' ? (
           <>
@@ -262,7 +271,7 @@ export default function EditorArticulo() {
 
             <T tipo="label">Colores</T>
             <Chips>
-              {uniq([...a.colores, ...COLORES_BASE]).map((col) => (
+              {uniq([...a.colores, ...(cfg.coloresRec || []).slice(0, 6), ...COLORES_BASE]).map((col) => (
                 <Chip key={col} titulo={col} activo={a.colores.includes(col)} onPress={() => togColor(col)} />
               ))}
             </Chips>
@@ -272,7 +281,7 @@ export default function EditorArticulo() {
 
             <T tipo="label">Tallas</T>
             <Chips>
-              {uniq([...TALLAS_BASE, ...a.tallas]).map((t) => (
+              {uniq([...TALLAS_BASE, ...(cfg.tallasExtra || []), ...a.tallas]).map((t) => (
                 <Chip key={t} titulo={t} activo={a.tallas.includes(t)} onPress={() => togTalla(t)} />
               ))}
             </Chips>
@@ -293,6 +302,8 @@ export default function EditorArticulo() {
             </Tarjeta>
             {!esNuevo ? <Boton tipo="peligro" titulo="Eliminar artículo" onPress={eliminar} /> : null}
           </>
+        ) : tab === 'comp' ? (
+          <EditorComposicion a={a} set={set} />
         ) : (
           <>
             <Fila>
@@ -343,6 +354,18 @@ export default function EditorArticulo() {
                 <T style={{ fontFamily: 'Menlo', fontWeight: '800', color: c.accent }}>{money(base)}</T>
               </View>
             </Tarjeta>
+
+            <T tipo="label">Viaje de compra</T>
+            {viajes.length ? (
+              <Chips scroll>
+                <Chip titulo="Sin viaje" activo={!a.viajeId} onPress={() => set({ viajeId: null })} />
+                {viajes.map((v) => (
+                  <Chip key={v.id} titulo={v.nombre || 'Viaje'} activo={a.viajeId === v.id} onPress={() => set({ viajeId: v.id })} />
+                ))}
+              </Chips>
+            ) : (
+              <T tipo="chico">Crea un viaje en la pestaña Proveedores para repartir pasajes, hospedaje y comida entre lo que compraste.</T>
+            )}
 
             <T tipo="label">Precio de venta</T>
             {precioBox('mayoreo')}
