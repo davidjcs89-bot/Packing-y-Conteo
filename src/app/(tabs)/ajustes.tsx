@@ -1,9 +1,11 @@
 import { useSQLiteContext } from 'expo-sqlite';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Alert, View } from 'react-native';
 
 import { Boton, Cabecera, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import { ORDENES, fmtF, multsDe, num } from '@/lib/calc';
+import { espacioLocal, leerUso, peso, type Uso } from '@/lib/uso';
 import { elegirRespaldo, importarRespaldo, type ModoImportar } from '@/lib/respaldo';
 import { useStore } from '@/lib/store';
 import type { Config } from '@/lib/types';
@@ -63,6 +65,65 @@ function ImportarRespaldo() {
   );
 }
 
+function UsoYCostos() {
+  const db = useSQLiteContext();
+  const { pendientes } = useStore();
+  const [uso, setUso] = useState<Uso | null>(null);
+  const [esp, setEsp] = useState<ReturnType<typeof espacioLocal> | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      leerUso(db).then(setUso);
+      try {
+        setEsp(espacioLocal());
+      } catch {
+        setEsp(null);
+      }
+    }, [db])
+  );
+  const n = (x = 0) => x.toLocaleString('es-EC');
+  const filas: [string, string, string][] = uso
+    ? [
+        ['Lecturas', n(uso.hoy.l), n(uso.mes.l)],
+        ['Escrituras', n(uso.hoy.e), n(uso.mes.e)],
+        ['Transferencia bajada', peso(uso.hoy.tb), peso(uso.mes.tb)],
+        ['Transferencia subida', peso(uso.hoy.ts), peso(uso.mes.ts)],
+      ]
+    : [];
+  return (
+    <Tarjeta style={{ gap: 8 }}>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T tipo="chico">Nube</T>
+        <T tipo="chico">Hoy · Este mes</T>
+      </Fila>
+      {filas.map(([l, h, m]) => (
+        <Fila key={l} style={{ justifyContent: 'space-between' }}>
+          <T>{l}</T>
+          <T tipo="mono">{h} · {m}</T>
+        </Fila>
+      ))}
+      <T tipo="chico">La app todavía no usa la nube: todo se lee y se guarda en el teléfono, así que estos números siguen en cero. Empezarán a contar cuando conectemos Supabase en la Fase 4.</T>
+      <View style={{ height: 1, backgroundColor: 'rgba(128,128,128,.25)', marginVertical: 4 }} />
+      <T tipo="chico">Espacio en este iPhone</T>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T>Datos</T>
+        <T tipo="mono">{peso(esp?.datos)}</T>
+      </Fila>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T>Fotos ({n(esp?.nFotos)})</T>
+        <T tipo="mono">{peso(esp?.fotos)}</T>
+      </Fila>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T>Libre en el teléfono</T>
+        <T tipo="mono">{peso(esp?.libre)}</T>
+      </Fila>
+      <Fila style={{ justifyContent: 'space-between' }}>
+        <T>Cambios pendientes de subir</T>
+        <T tipo="mono">{n(pendientes)}</T>
+      </Fila>
+    </Tarjeta>
+  );
+}
+
 export default function Ajustes() {
   const { cfg, setCfg, arts, provs, movs, pendientes } = useStore();
   return (
@@ -114,6 +175,9 @@ export default function Ajustes() {
         <Chips>
           <Chip titulo={cfg.ivaCosto !== false ? 'Sumar IVA al costo ✓' : 'Sumar IVA al costo'} activo={cfg.ivaCosto !== false} onPress={() => setCfg({ ivaCosto: cfg.ivaCosto === false })} />
         </Chips>
+
+        <T tipo="label">Uso y costos</T>
+        <UsoYCostos />
 
         <T tipo="label">Respaldo desde la app web</T>
         <ImportarRespaldo />
