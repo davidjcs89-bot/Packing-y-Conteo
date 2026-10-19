@@ -37,3 +37,14 @@ npm install
 npx expo start      # servidor de desarrollo
 npx tsc --noEmit    # verificación de tipos
 ```
+
+## Actualización automática
+
+- **Cambios de pantallas o cálculos** (código de la app): al subir a `main`, GitHub Actions
+  lanza `.eas/workflows/publicar.yml`, que envía una actualización por internet (EAS Update).
+  La app la descarga al abrir o al volver a primer plano y ofrece "Actualizar ahora".
+- **Cambios nativos** (permisos, librerías nativas, ícono): la huella nativa cambia, así que el
+  flujo compila una versión nueva y la envía a TestFlight. Con "Actualizaciones automáticas"
+  activadas en la app TestFlight, el iPhone la instala solo.
+- La publicación automática está en pausa hasta que exista `.eas/activo`, que se crea después de
+  la primera compilación manual (`eas build --platform ios --profile production --auto-submit`).

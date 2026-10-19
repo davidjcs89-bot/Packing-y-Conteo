@@ -1,0 +1,45 @@
+# Cada vez que se sube un cambio a "main", publica la última versión de la app
+# del iPhone usando el flujo .eas/workflows/publicar.yml (actualización por
+# internet o versión nueva en TestFlight, según lo que haya cambiado).
+#
+# Queda en pausa hasta que exista el archivo .eas/activo: se crea después de la
+# primera compilación manual, cuando ya están los certificados de Apple.
+# También se puede lanzar a mano: Actions → "Publicar iOS" → "Run workflow".
+name: Publicar iOS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publicar-ios
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ¿Publicación automática activa?
+        id: activo
+        run: |
+          if [ -f .eas/activo ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then echo "si=1" >> "$GITHUB_OUTPUT"; else echo "En pausa: falta .eas/activo (primera compilación pendiente)."; fi
+      - uses: actions/setup-node@v4
+        if: steps.activo.outputs.si
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        if: steps.activo.outputs.si
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci
+        if: steps.activo.outputs.si
+      - name: Revisar que el código compila
+        if: steps.activo.outputs.si
+        run: npx tsc --noEmit
+      - name: Publicar
+        if: steps.activo.outputs.si
+        run: eas workflow:run .eas/workflows/publicar.yml --non-interactive

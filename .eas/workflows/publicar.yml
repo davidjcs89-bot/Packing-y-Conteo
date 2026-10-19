@@ -1,0 +1,48 @@
+# Publica la última versión de la app del iPhone.
+#  - Si solo cambió el código de la app (pantallas, cálculos…): envía una
+#    actualización por internet (EAS Update). La app la descarga sola al abrir.
+#  - Si cambió algo nativo (permisos, librerías nuevas, ícono…): compila una
+#    versión nueva y la envía a TestFlight.
+# La "huella" (fingerprint) es lo que distingue un caso del otro.
+name: Publicar iOS
+
+on:
+  push:
+    branches: ['main']
+
+jobs:
+  huella:
+    name: Calcular huella nativa
+    type: fingerprint
+    environment: production
+  buscar_build:
+    name: Buscar versión compatible
+    needs: [huella]
+    type: get-build
+    params:
+      fingerprint_hash: ${{ needs.huella.outputs.ios_fingerprint_hash }}
+      profile: production
+      platform: ios
+      wait_for_in_progress: true
+  compilar:
+    name: Compilar versión nueva
+    needs: [buscar_build]
+    if: ${{ !needs.buscar_build.outputs.build_id }}
+    type: build
+    params:
+      platform: ios
+      profile: production
+  enviar_testflight:
+    name: Enviar a TestFlight
+    needs: [compilar]
+    type: submit
+    params:
+      build_id: ${{ needs.compilar.outputs.build_id }}
+  actualizar:
+    name: Enviar actualización por internet
+    needs: [buscar_build]
+    if: ${{ needs.buscar_build.outputs.build_id }}
+    type: update
+    params:
+      branch: production
+      platform: ios

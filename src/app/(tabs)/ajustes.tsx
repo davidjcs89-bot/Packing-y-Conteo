@@ -1,4 +1,6 @@
+import Constants from 'expo-constants';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Updates from 'expo-updates';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
@@ -270,7 +272,10 @@ export default function Ajustes() {
           <T tipo="chico">Todo se guarda en la base local del teléfono y funciona sin internet.</T>
           <T tipo="chico">Cambios pendientes de sincronizar: {pendientes} (la sincronización con la nube llega en la Fase 4).</T>
         </Tarjeta>
-        <T tipo="chico" style={{ textAlign: 'center' }}>Packing-y-Conteo de productos ya comprados · Fase 1</T>
+        <T tipo="chico" style={{ textAlign: 'center' }}>
+          Packing-y-Conteo de productos ya comprados · v{Constants.expoConfig?.version}
+          {Updates.updateId ? ` · act. ${Updates.createdAt ? Updates.createdAt.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) : ''}` : ''}
+        </T>
       </Pantalla>
     </View>
   );

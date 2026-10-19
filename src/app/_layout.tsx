@@ -4,6 +4,7 @@ import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
+import { useActualizaciones } from '@/lib/actualizaciones';
 import { DB_NAME, migrar } from '@/lib/db';
 import { StoreProvider, useStore } from '@/lib/store';
 import { Paleta, useEsquema } from '@/lib/theme';
@@ -12,6 +13,7 @@ SplashScreen.preventAutoHideAsync();
 
 function Navegacion() {
   const { listo } = useStore();
+  useActualizaciones();
   const esquema = useEsquema();
   const c = Paleta[esquema];
   useEffect(() => {
