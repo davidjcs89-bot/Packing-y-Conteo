@@ -1,4 +1,3 @@
-import { Directory, File, Paths } from 'expo-file-system';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -23,6 +22,7 @@ import {
   uid,
   uniq,
 } from '@/lib/calc';
+import { fotoUri, guardarFotoLocal } from '@/lib/fotos';
 import { useStore } from '@/lib/store';
 import { useColores } from '@/lib/theme';
 import type { Articulo, Linea } from '@/lib/types';
@@ -30,14 +30,6 @@ import type { Articulo, Linea } from '@/lib/types';
 const TALLAS_BASE = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'S/M', 'L/XL', 'Única'];
 const COLORES_BASE = ['Negro', 'Blanco', 'Beige', 'Café', 'Gris', 'Azul', 'Rosa', 'Verde'];
 
-/** Copia una foto elegida a la carpeta de la app para que no se pierda al limpiar la caché. */
-async function guardarFotoLocal(uri: string) {
-  const dir = new Directory(Paths.document, 'fotos');
-  if (!dir.exists) dir.create();
-  const destino = new File(dir, `${uid()}.jpg`);
-  await new File(uri).copy(destino);
-  return destino.uri;
-}
 
 export default function EditorArticulo() {
   const c = useColores();
@@ -228,7 +220,7 @@ export default function EditorArticulo() {
               <ScrollView horizontal contentContainerStyle={{ gap: 8 }}>
                 {a.fotos.map((f, i) => (
                   <View key={f + i}>
-                    <Image source={{ uri: f }} style={{ width: 110, height: 140, borderRadius: 10, backgroundColor: c.card }} contentFit="cover" cachePolicy="disk" />
+                    <Image source={{ uri: fotoUri(f) }} style={{ width: 110, height: 140, borderRadius: 10, backgroundColor: c.card }} contentFit="cover" cachePolicy="disk" />
                     <Pressable onPress={() => set({ fotos: a.fotos.filter((_, j) => j !== i) })} style={{ position: 'absolute', top: 5, right: 5, width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' }}>
                       <Text style={{ color: '#fff', fontSize: 16 }}>×</Text>
                     </Pressable>

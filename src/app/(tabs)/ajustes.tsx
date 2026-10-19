@@ -1,8 +1,10 @@
+import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { ActivityIndicator, Alert, View } from 'react-native';
 
-import { Cabecera, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
+import { Boton, Cabecera, Campo, Chip, Chips, Fila, Pantalla, Segmento, T, Tarjeta } from '@/components/ui';
 import { ORDENES, fmtF, multsDe, num } from '@/lib/calc';
+import { elegirRespaldo, importarRespaldo, type ModoImportar } from '@/lib/respaldo';
 import { useStore } from '@/lib/store';
 import type { Config } from '@/lib/types';
 
@@ -10,6 +12,55 @@ function CampoNum({ etiqueta, k, placeholder }: { etiqueta: string; k: keyof Con
   const { cfg, setCfg } = useStore();
   const [v, setV] = useState(cfg[k] != null ? String(cfg[k]) : '');
   return <Campo etiqueta={etiqueta} value={v} onChangeText={setV} onEndEditing={() => setCfg({ [k]: num(v) })} keyboardType="decimal-pad" placeholder={placeholder} />;
+}
+
+function ImportarRespaldo() {
+  const db = useSQLiteContext();
+  const { arts, recargar } = useStore();
+  const [estado, setEstado] = useState('');
+
+  const correr = async (uri: string, modo: ModoImportar) => {
+    setEstado('Preparando…');
+    try {
+      const r = await importarRespaldo(db, uri, modo, setEstado);
+      await recargar();
+      const fecha = new Date(r.creado).toLocaleDateString('es-EC', { day: '2-digit', month: 'short', year: 'numeric' });
+      Alert.alert(
+        'Respaldo importado',
+        `Del respaldo del ${fecha}:\n${r.articulos} artículos · ${r.proveedores} proveedores\n${r.movimientos} movimientos · ${r.viajes} viajes · ${r.fotos} fotos` +
+          (r.conservados ? `\n\nSe conservaron ${r.conservados} registros del iPhone porque eran más recientes.` : '')
+      );
+    } catch (e) {
+      Alert.alert('No se pudo importar', e instanceof Error ? e.message : String(e));
+    } finally {
+      setEstado('');
+    }
+  };
+
+  const empezar = async () => {
+    const f = await elegirRespaldo();
+    if (!f) return;
+    if (!arts.length) return correr(f.uri, 'reemplazar');
+    Alert.alert('¿Qué hacemos con lo que ya hay en el iPhone?', `Ahora tienes ${arts.length} artículos en esta app.`, [
+      { text: 'Combinar (quedarse con lo más reciente)', onPress: () => correr(f.uri, 'combinar') },
+      { text: 'Reemplazar todo', style: 'destructive', onPress: () => correr(f.uri, 'reemplazar') },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
+  return (
+    <Tarjeta style={{ gap: 8 }}>
+      <T tipo="chico">En la app web ve a Configuración → «Exportar respaldo (.zip)», guarda el archivo en Archivos o iCloud Drive y ábrelo aquí. Importar no usa internet ni la nube.</T>
+      {estado ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
+          <ActivityIndicator />
+          <T>{estado}</T>
+        </View>
+      ) : (
+        <Boton tipo="primario" titulo="Importar respaldo" onPress={empezar} />
+      )}
+    </Tarjeta>
+  );
 }
 
 export default function Ajustes() {
@@ -63,6 +114,9 @@ export default function Ajustes() {
         <Chips>
           <Chip titulo={cfg.ivaCosto !== false ? 'Sumar IVA al costo ✓' : 'Sumar IVA al costo'} activo={cfg.ivaCosto !== false} onPress={() => setCfg({ ivaCosto: cfg.ivaCosto === false })} />
         </Chips>
+
+        <T tipo="label">Respaldo desde la app web</T>
+        <ImportarRespaldo />
 
         <T tipo="label">Datos en este iPhone</T>
         <Tarjeta style={{ gap: 4 }}>

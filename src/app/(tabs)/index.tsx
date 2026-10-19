@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Buscador } from '@/components/buscador';
 import { Cabecera, Chip, Chips, T, Tarjeta, Vacio } from '@/components/ui';
 import { costoBase, money, ORDENES, ordenar, precio, sinAcento, tieneStock, totalStock } from '@/lib/calc';
+import { fotoUri } from '@/lib/fotos';
 import { useStore } from '@/lib/store';
 import { useColores } from '@/lib/theme';
 import type { Articulo } from '@/lib/types';
@@ -37,7 +38,7 @@ export default function Articulos() {
     return (
       <Tarjeta onPress={() => router.push({ pathname: '/articulo/[id]', params: { id: a.id } })} style={{ flexDirection: 'row', gap: 12, marginBottom: 8 }}>
         {a.fotos[0] ? (
-          <Image source={{ uri: a.fotos[0] }} style={{ width: 72, height: 92, borderRadius: 8, backgroundColor: c.bg }} contentFit="cover" cachePolicy="disk" transition={120} />
+          <Image source={{ uri: fotoUri(a.fotos[0]) }} style={{ width: 72, height: 92, borderRadius: 8, backgroundColor: c.bg }} contentFit="cover" cachePolicy="disk" transition={120} />
         ) : (
           <View style={{ width: 72, height: 92, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: c.line, alignItems: 'center', justifyContent: 'center' }}>
             <T tipo="chico">Sin foto</T>
