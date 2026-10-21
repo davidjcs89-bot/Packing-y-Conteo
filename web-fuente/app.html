@@ -1369,12 +1369,13 @@ function vArts(){
         ${S.fSinPrecio ? '<button class="chip" data-act="quitarsinprecio" aria-pressed="true">Sin precio ×</button>' : ''}</div>
       ${ordSel('arts')}<button class="linkbtn" data-act="selmode">${S.selMode ? 'Listo' : 'Seleccionar'}</button></div>
     ${!S.fProv && !S.selMode && S.arts.some(a => (a.fotos || []).length) ? '<button class="linkbtn" data-act="hropen" style="align-self:flex-start">Poner fotos grandes en lugar de las recortadas</button>' : ''}
-    ${(() => { const p = S.fProv && prov(S.fProv); if (!p || (!verMay() && !verMen()) || S.selMode || EMP()) return '';
+    ${(() => { const p = S.fProv && prov(S.fProv); if (!p || S.selMode || EMP()) return '';
         const arts = S.arts.filter(a => a.proveedorId === p.id); const nMan = verMay() ? arts.filter(a => a.pMay != null && a.pMay !== '').length : 0; const nManM = verMen() ? arts.filter(a => a.pMen != null && a.pMen !== '').length : 0;
-        return `<details class="panel provbar" data-provbar="1" ${S.provbarOpen ? 'open' : ''}><summary class="section-h"><span><b>${esc(p.nombre)}</b> <span class="muted small">· ${arts.length} artículos</span></span><span class="small muted">${[verMay() ? 'May ×' + fmtF(p.fMay || 0) : '', verMen() ? 'Men ×' + fmtF(p.fMen || 0) : ''].filter(Boolean).join(' · ')} <span class="pb-car" aria-hidden="true">▾</span></span></summary>
-          ${verMay() ? `<span class="label">Mayoreo</span>${multChips('prov', p.id, p.fMay)}` : ''}
-          ${verMen() ? `<span class="label">Menudeo</span>${multChips('provm', p.id, p.fMen)}` : ''}
-          ${verMay() && verMen() && p.fMen != null && p.fMay != null && +p.fMen <= +p.fMay ? `<div class="note err small">El múltiplo de menudeo (×${fmtF(+p.fMen)}) debe ser mayor que el de mayoreo (×${fmtF(+p.fMay)}).</div>` : ''}
+        return `<details class="panel provbar" data-provbar="1" ${S.provbarOpen ? 'open' : ''}><summary class="section-h"><span><b>${esc(p.nombre)}</b> <span class="muted small">· ${arts.length} artículos</span></span><span class="small muted">${['May ×' + fmtF(p.fMay || 0), 'Men ×' + fmtF(p.fMen || 0)].join(' · ')} <span class="pb-car" aria-hidden="true">▾</span></span></summary>
+          <span class="label">Mayoreo</span>${multChips('prov', p.id, p.fMay)}
+          <span class="label">Menudeo</span>${multChips('provm', p.id, p.fMen)}
+          ${!verMen() || !verMay() ? `<div class="small muted">${!verMen() ? 'El precio de menudeo' : 'El precio de mayoreo'} no se muestra en los artículos ni en el catálogo. Actívalo en <button class="linkbtn" data-act="config">Configuración › Precios que se muestran</button>.</div>` : ''}
+          ${p.fMen != null && p.fMay != null && +p.fMen <= +p.fMay ? `<div class="note err small">El múltiplo de menudeo (×${fmtF(+p.fMen)}) debe ser mayor que el de mayoreo (×${fmtF(+p.fMay)}).</div>` : ''}
           <div class="small muted">Cambia el múltiplo de todo el proveedor; los precios se recalculan al instante.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-addprov="${p.id}">${I.plus}Agregar artículos</button><button class="btn" data-act="hropen">${I.img}Poner fotos grandes</button><button class="btn" data-act="cllote">${I.eraser}Limpiar texto de fotos</button></div>
           <details class="resdet" ${S.resOpen ? 'open' : ''}><summary>Resumen de lo importado</summary>${vResumen(p.id)}</details>
