@@ -1369,14 +1369,17 @@ function vArts(){
         ${S.fSinPrecio ? '<button class="chip" data-act="quitarsinprecio" aria-pressed="true">Sin precio ×</button>' : ''}</div>
       ${ordSel('arts')}<button class="linkbtn" data-act="selmode">${S.selMode ? 'Listo' : 'Seleccionar'}</button></div>
     ${!S.fProv && !S.selMode && S.arts.some(a => (a.fotos || []).length) ? '<button class="linkbtn" data-act="hropen" style="align-self:flex-start">Poner fotos grandes en lugar de las recortadas</button>' : ''}
-    ${(() => { const p = S.fProv && prov(S.fProv); if (!p || !verMay() || S.selMode) return '';
-        const arts = S.arts.filter(a => a.proveedorId === p.id); const nMan = arts.filter(a => a.pMay != null && a.pMay !== '').length;
-        return `<details class="panel provbar" data-provbar="1" ${S.provbarOpen ? 'open' : ''}><summary class="section-h"><span><b>${esc(p.nombre)}</b> <span class="muted small">· ${arts.length} artículos</span></span><span class="small muted">Mayoreo ×${fmtF(p.fMay || 0)} <span class="pb-car" aria-hidden="true">▾</span></span></summary>
-          ${multChips('prov', p.id, p.fMay)}
-          <div class="small muted">Cambia el múltiplo de mayoreo de todo el proveedor; los precios se recalculan al instante.</div>
+    ${(() => { const p = S.fProv && prov(S.fProv); if (!p || (!verMay() && !verMen()) || S.selMode || EMP()) return '';
+        const arts = S.arts.filter(a => a.proveedorId === p.id); const nMan = verMay() ? arts.filter(a => a.pMay != null && a.pMay !== '').length : 0; const nManM = verMen() ? arts.filter(a => a.pMen != null && a.pMen !== '').length : 0;
+        return `<details class="panel provbar" data-provbar="1" ${S.provbarOpen ? 'open' : ''}><summary class="section-h"><span><b>${esc(p.nombre)}</b> <span class="muted small">· ${arts.length} artículos</span></span><span class="small muted">${[verMay() ? 'May ×' + fmtF(p.fMay || 0) : '', verMen() ? 'Men ×' + fmtF(p.fMen || 0) : ''].filter(Boolean).join(' · ')} <span class="pb-car" aria-hidden="true">▾</span></span></summary>
+          ${verMay() ? `<span class="label">Mayoreo</span>${multChips('prov', p.id, p.fMay)}` : ''}
+          ${verMen() ? `<span class="label">Menudeo</span>${multChips('provm', p.id, p.fMen)}` : ''}
+          ${verMay() && verMen() && p.fMen != null && p.fMay != null && +p.fMen <= +p.fMay ? `<div class="note err small">El múltiplo de menudeo (×${fmtF(+p.fMen)}) debe ser mayor que el de mayoreo (×${fmtF(+p.fMay)}).</div>` : ''}
+          <div class="small muted">Cambia el múltiplo de todo el proveedor; los precios se recalculan al instante.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" data-addprov="${p.id}">${I.plus}Agregar artículos</button><button class="btn" data-act="hropen">${I.img}Poner fotos grandes</button><button class="btn" data-act="cllote">${I.eraser}Limpiar texto de fotos</button></div>
           <details class="resdet" ${S.resOpen ? 'open' : ''}><summary>Resumen de lo importado</summary>${vResumen(p.id)}</details>
-          ${nMan ? `<div class="confirm" style="background:var(--gold-soft);color:var(--ink)">${nMan} ${nMan === 1 ? 'artículo tiene' : 'artículos tienen'} precio puesto a mano y no ${nMan === 1 ? 'cambia' : 'cambian'}.<button class="btn" data-resetman="${p.id}" style="padding:6px 12px">Pasar${nMan === 1 ? 'lo' : 'los'} al ×${fmtF(p.fMay || 0)}</button></div>` : ''}
+          ${nMan ? `<div class="confirm" style="background:var(--gold-soft);color:var(--ink)">${nMan} ${nMan === 1 ? 'artículo tiene' : 'artículos tienen'} precio de mayoreo puesto a mano y no ${nMan === 1 ? 'cambia' : 'cambian'}.<button class="btn" data-resetman="${p.id}" style="padding:6px 12px">Pasar${nMan === 1 ? 'lo' : 'los'} al ×${fmtF(p.fMay || 0)}</button></div>` : ''}
+          ${nManM ? `<div class="confirm" style="background:var(--gold-soft);color:var(--ink)">${nManM} ${nManM === 1 ? 'artículo tiene' : 'artículos tienen'} precio de menudeo puesto a mano y no ${nManM === 1 ? 'cambia' : 'cambian'}.<button class="btn" data-resetmen="${p.id}" style="padding:6px 12px">Pasar${nManM === 1 ? 'lo' : 'los'} al ×${fmtF(p.fMen || 0)}</button></div>` : ''}
         </details>`; })()}
     ${!S.fProv && S.provs.length ? '<div class="small muted">Para cambiar el múltiplo de un proveedor entero, elígelo en la fila de arriba.</div>' : ''}
     ${ejem ? `<div class="note info small">Los artículos marcados <span class="tag">Ejemplo</span> son de muestra para que veas cómo funciona. Bórralos cuando cargues tu primera factura.</div>` : ''}
@@ -1435,10 +1438,10 @@ function vResumen(pid){
 }
 const MULTS = [3, 4, 4.5, 5, 6];
 const MULTS_MEN = [5, 6, 7, 8, 10];
-const multsDe = kind => (kind === 'edm' ? (S.cfg.multMen || MULTS_MEN) : (S.cfg.multMay || MULTS));
+const multsDe = kind => (kind === 'edm' || kind === 'provm' ? (S.cfg.multMen || MULTS_MEN) : (S.cfg.multMay || MULTS));
 function multChips(kind, id, cur, costo){
   const key = kind + ':' + id; const curN = cur == null ? null : Math.round(cur * 100) / 100; const ML = multsDe(kind); const esEd = kind === 'ed' || kind === 'edm';
-  const attr = m => kind === 'prov' ? `data-fmay="${id}:${m}"` : esEd ? `data-emult="${m}" data-ek="${kind}"` : `data-npfy="${m}"`;
+  const attr = m => kind === 'prov' ? `data-fmay="${id}:${m}"` : kind === 'provm' ? `data-fmen="${id}:${m}"` : esEd ? `data-emult="${m}" data-ek="${kind}"` : `data-npfy="${m}"`;
   const pMayEd = kind === 'edm' && S.sheet && S.sheet.a ? precio(S.sheet.a, 'mayoreo') : null;
   const tip = m => esEd ? (costo != null ? (pMayEd != null && Math.ceil(r2(costo * m)) <= pMayEd ? `class="chip bajo" title="${money(Math.ceil(r2(costo * m)))}: no es mayor que el mayoreo"` : `title="${money(Math.ceil(r2(costo * m)))}"`) : 'disabled title="Falta el costo"') : '';
   const custom = curN != null && !ML.includes(curN);
@@ -1451,6 +1454,7 @@ async function aplicarMult(key, m){
   if (!(m > 0)){ toast('Escribe un múltiplo mayor que cero'); return; }
   m = Math.round(m * 100) / 100;
   if (kind === 'prov'){ const p = prov(id); if (p){ try { await save('proveedores', id, { ...p, fMay:m }); toast(p.nombre + ': mayoreo ×' + fmtF(m)); } catch (e) { toast('No se pudo guardar'); } } }
+  if (kind === 'provm'){ const p = prov(id); if (p){ try { await save('proveedores', id, { ...p, fMen:m }); toast(p.nombre + ': menudeo ×' + fmtF(m)); } catch (e) { toast('No se pudo guardar'); } } }
   else if (kind === 'ed' || kind === 'edm'){ const a = S.sheet && S.sheet.a; if (!a) return; if (cb(a) == null){ toast('Primero escribe el costo'); return; }
     const men = kind === 'edm'; const val = Math.ceil(r2(cb(a) * m)); const p = prov(a.proveedorId); const pf = factorDe(p, men ? 'menudeo' : 'mayoreo');
     a[men ? 'pMen' : 'pMay'] = pf === m ? null : val; toast((men ? 'Menudeo' : 'Mayoreo') + ' ×' + fmtF(m) + ' = ' + money(val)); }
@@ -2202,7 +2206,8 @@ function provCard(p){ const n = S.arts.filter(a => a.proveedorId === p.id).lengt
       <label class="field"><span>Moneda de sus facturas</span><select class="inp" id="pmo-${p.id}" data-prov="${p.id}" data-k="moneda"><option value="USD" ${p.moneda !== 'RMB' ? 'selected' : ''}>Dólares (USD)</option><option value="RMB" ${p.moneda === 'RMB' ? 'selected' : ''}>Yuanes (RMB ¥)</option></select></label>
       <label class="setrow" style="padding:10px 12px"><span class="txt"><b>Tallas chinas</b><span class="small muted">Al importar baja una talla: M → S, L → M, XL → L</span></span><span class="switch"><input type="checkbox" data-prov="${p.id}" data-k="tallaChina" ${esChina(p) ? 'checked' : ''} aria-label="Tallas chinas"><span></span></span></label>
       <div class="fx">
-        <label class="field"><span>Factor menudeo</span><input class="inp" id="pm-${p.id}" data-prov="${p.id}" data-k="fMen" value="${p.fMen ?? ''}" inputmode="decimal"></label>
+        <div class="field"><span>Factor menudeo</span><input class="inp" id="pm-${p.id}" data-prov="${p.id}" data-k="fMen" value="${p.fMen ?? ''}" inputmode="decimal">
+          ${multChips('provm', p.id, p.fMen)}</div>
         <div class="field"><span>Factor mayoreo</span><input class="inp" id="py-${p.id}" data-prov="${p.id}" data-k="fMay" value="${p.fMay ?? ''}" inputmode="decimal">
           ${multChips('prov', p.id, p.fMay)}</div>
       </div>
@@ -4515,6 +4520,7 @@ document.addEventListener('click', async e => {
   if (d.act === 'dvclose'){ S.docView = null; render(); return; }
   if (d.act === 'lbdl'){ const ref = S.lbRefs && S.lbRefs.refs[S.lb.i]; if (!ref) return; try { const b = await (await fetch(fotoUrl(ref))).blob(); await bajarArchivo({ filename:nombreFoto(S.lbRefs.a, S.lb.i), data:b }); } catch (er) { if (er && er.code !== 'declined') toast('No se pudo descargar'); } return; }
   if (d.fmay){ const [id, f] = d.fmay.split(':'); await aplicarMult('prov:' + id, +f); return; }
+  if (d.fmen){ const [id, f] = d.fmen.split(':'); await aplicarMult('provm:' + id, +f); return; }
   if (d.npfy){ S.npFy = +d.npfy; render(); return; }
   if (d.reveal && d.reveal.startsWith('res:')){ S.reveal.has(d.reveal) ? S.reveal.delete(d.reveal) : S.reveal.add(d.reveal); S.resOpen = true; render(); return; }
   if (d.reveal){ S.reveal.add(d.reveal); render(); const el = document.getElementById(d.reveal === 'ed' ? (document.getElementById('e-corig') ? 'e-corig' : 'e-costo') : 'cc-' + d.reveal); if (el){ el.focus(); try { el.select(); } catch {} } return; }
@@ -4530,6 +4536,8 @@ document.addEventListener('click', async e => {
     openCropImg(src, async cv => { toast('Guardando recorte…'); c.foto = await storePhoto(cv); c.raw = null; c.img = null; c.ed = Object.assign(c.ed || {}, { foto:true }); render(); }); return; }
   if (d.candrm){ const c = S.cands.find(x => x.key === d.candrm); if (c && c.img && c.img.startsWith('blob:')) URL.revokeObjectURL(c.img); S.cands = S.cands.filter(x => x.key !== d.candrm); render(); return; }
   if (d.tipo){ S.cat.tipo = d.tipo; lsSet('cat.cfg', S.cat); render(); return; }
+  if (d.resetmen){ const lista = S.arts.filter(a => a.proveedorId === d.resetmen && a.pMen != null && a.pMen !== '');
+    try { for (const a of lista) await save('articulos', a.id, { ...a, pMen:null }); toast(lista.length + (lista.length === 1 ? ' artículo pasó' : ' artículos pasaron') + ' al múltiplo de menudeo del proveedor'); } catch (er) { toast('No se pudo actualizar'); } return; }
   if (d.resetman){ const lista = S.arts.filter(a => a.proveedorId === d.resetman && a.pMay != null && a.pMay !== '');
     try { for (const a of lista) await save('articulos', a.id, { ...a, pMay:null }); toast(lista.length + (lista.length === 1 ? ' artículo pasó' : ' artículos pasaron') + ' al múltiplo del proveedor'); } catch (er) { toast('No se pudo actualizar'); } return; }
   if (d.emult){ await aplicarMult((d.ek || 'ed') + ':', +d.emult); return; }
