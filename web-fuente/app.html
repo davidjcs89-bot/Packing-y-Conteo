@@ -2035,7 +2035,7 @@ function cardArt(a, n, tot){
       <div class="top"><span class="code">${n ? `<span class="ordn mono" title="Resultado ${n} de ${tot}">${n}</span>` : ''}${esc(a.estilo || 'Sin código')}${a.ejemplo ? ' <span class="tag">Ejemplo</span>' : ''}</span>${cst ? `<span class="cst mono">${cst}</span>` : ''}</div>
       <div class="name">${esc(a.nombre || 'Sin nombre')}${EMP() ? '' : `<span class="muted" style="font-weight:400"> · ${esc(p ? p.nombre : 'Sin proveedor')}</span>`}${tieneStock(a) ? ` <span class="stkpill ${totalStock(a) || a.soloCatalogo ? '' : 'cero'}">${totalStock(a) ? totalStock(a) + ' en bodega' : a.soloCatalogo ? 'Bajo pedido' : 'Agotado'}</span>` : ''}${pillsCamino(a.id)}</div>
       <div class="cols">${cols.length ? `<span class="dots">${cols.slice(0, 7).map(c => { const h = colHex(c); return `<i title="${esc(c)}" style="${h ? 'background:' + h : ''}" class="${h ? '' : 'unk'}"></i>`; }).join('')}${cols.length > 7 ? `<b>+${cols.length - 7}</b>` : ''}</span>` : '<span class="muted">Sin colores</span>'}<span class="tl">${esc((a.tallas || []).join(', '))}</span></div>
-      <div class="prices">${pm == null && py == null && !S.qEdit ? `<button class="pill qp warn" data-qprice="${a.id}:${verMay() ? 'pMay' : 'pMen'}">Poner precio</button>` : `${pill('pMen', '', 'Men', a.pMen ?? pm)}${pill('pMay', 'may', 'May', a.pMay ?? py)}`}</div>
+      <div class="prices">${pm == null && py == null && !S.qEdit ? `<button class="pill qp warn" data-qprice="${a.id}:${verMay() ? 'pMay' : 'pMen'}">Poner precio</button>` : `${pill('pMay', 'may', 'May', a.pMay ?? py)}${pill('pMen', '', 'Men', a.pMen ?? pm)}`}</div>
     </div></div></div>`;
 }
 
