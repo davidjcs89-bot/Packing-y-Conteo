@@ -1427,8 +1427,7 @@ async function generar(){
   try {
     const doc = await buildPdf();
     const name = nombreArchivoCat();
-    if (!S.downloads){ toast('La descarga no está disponible en esta vista. Ábrela desde claude.ai.'); return; }
-    await S.downloads.save({ filename:name, data:doc.output('blob') });
+    await bajarArchivo({ filename:name, data:doc.output('blob') });
     toast('PDF listo: ' + name);
   } catch (e) {
     if (e && e.code === 'declined') toast('Descarga cancelada');
@@ -1479,7 +1478,7 @@ function render(){
     </div></div>` : ''}
     ${S.docView ? vDocView() : ''}
     ${S.lb ? `<div class="lb" role="dialog" aria-label="Foto ampliada"><div class="lb-top"><span class="small">${esc(S.lb.titulo || '')}</span><button data-act="lbclose" aria-label="Cerrar">×</button></div>
-      ${S.lbRefs && S.lbRefs.refs[S.lb.i] ? (() => { const ref = S.lbRefs.refs[S.lb.i], a = S.lbRefs.a, m = FMETA.get(ref); return `<div class="lb-info"><span class="lb-name">${esc(nombreFoto(a, S.lb.i))}</span><span><span data-fsz="${esc(ref)}" data-full="1">${m ? pesoTxt(m.bytes) + (m.w ? ` · ${m.w}×${m.h} px` : '') : '…'}</span>${esOpt(a, ref) ? ' · optimizada' : ''}</span>${S.downloads ? `<button class="linkbtn" data-act="lbdl">Descargar</button>` : ''}</div>`; })() : ''}
+      ${S.lbRefs && S.lbRefs.refs[S.lb.i] ? (() => { const ref = S.lbRefs.refs[S.lb.i], a = S.lbRefs.a, m = FMETA.get(ref); return `<div class="lb-info"><span class="lb-name">${esc(nombreFoto(a, S.lb.i))}</span><span><span data-fsz="${esc(ref)}" data-full="1">${m ? pesoTxt(m.bytes) + (m.w ? ` · ${m.w}×${m.h} px` : '') : '…'}</span>${esOpt(a, ref) ? ' · optimizada' : ''}</span>${`<button class="linkbtn" data-act="lbdl">Descargar</button>`}</div>`; })() : ''}
       <div class="lb-img ${S.lb.z ? 'z' : ''}" id="lbimg"><img src="${esc(S.lb.fotos[S.lb.i])}" alt="Foto ${S.lb.i + 1}"></div>
       <div class="lb-nav">${S.lb.fotos.length > 1 ? `<button data-lbnav="-1" ${S.lb.i === 0 ? 'disabled' : ''} aria-label="Anterior">‹</button><span>${S.lb.i + 1} / ${S.lb.fotos.length}</span><button data-lbnav="1" ${S.lb.i === S.lb.fotos.length - 1 ? 'disabled' : ''} aria-label="Siguiente">›</button>` : '<span class="small">Toca la foto para acercar</span>'}</div></div>` : ''}`;
   S.rendering = false;
@@ -2384,7 +2383,7 @@ function vCat(){
     </div>
     ${catChosen().length ? `<div class="small muted">Archivo: <span class="mono">${esc(nombreArchivoCat())}</span></div>` : ''}
     <button class="btn primary block" data-act="gen" ${S.gen || !chosen.length ? 'disabled' : ''}>${I.dl}${S.gen ? 'Generando PDF…' : `Generar PDF · ${chosen.length} artículos`}</button>
-    ${S.ready && !S.downloads ? '<div class="small muted">Para descargar el PDF abre esta app desde claude.ai.</div>' : ''}`;
+`;
 }
 
 function vProvs(){
@@ -2403,7 +2402,7 @@ function provCard(p){ const n = S.arts.filter(a => a.proveedorId === p.id).lengt
       <label class="field"><span>Contacto para pedidos (WhatsApp / WeChat)</span><input class="inp" data-prov="${p.id}" data-k="contacto" value="${esc(p.contacto || '')}" placeholder="WeChat: tienda123 · +86 138…"></label>
       <button class="btn primary" data-addprov="${p.id}" style="align-self:flex-start">${I.plus}Agregar artículos</button>
       <details class="resdet"><summary>Resumen de lo importado · ${n} art.</summary>${vResumen(p.id)}</details>
-      ${(() => { const ds = (S.docs || []).filter(d => d.proveedorId === p.id); return ds.length ? `<details class="resdet"><summary>Facturas guardadas · ${ds.length}</summary><div class="docs">${ds.map(d => `<div class="doc">${d.tipo === 'img' ? `<img src="${esc(BLOB(d.assetId))}" alt="" loading="lazy" data-docver="${d.id}">` : `<span class="docpdf" data-docver="${d.id}" data-pdfthumb="${d.id}">${PDFTHUMB.has(d.id) ? `<img src="${PDFTHUMB.get(d.id)}" alt="">` : 'PDF'}</span>`}<span class="txt" data-docver="${d.id}"><b>${esc(d.nombre)}</b><span class="small muted">${esc(d.factura ? 'Factura ' + d.factura + ' · ' : '')}${new Date(d.at).toLocaleDateString('es-EC', { day:'2-digit', month:'short', year:'numeric' })}</span></span>${S.downloads ? `<button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button>` : ''}</div>`).join('')}</div></details>` : ''; })()}
+      ${(() => { const ds = (S.docs || []).filter(d => d.proveedorId === p.id); return ds.length ? `<details class="resdet"><summary>Facturas guardadas · ${ds.length}</summary><div class="docs">${ds.map(d => `<div class="doc">${d.tipo === 'img' ? `<img src="${esc(BLOB(d.assetId))}" alt="" loading="lazy" data-docver="${d.id}">` : `<span class="docpdf" data-docver="${d.id}" data-pdfthumb="${d.id}">${PDFTHUMB.has(d.id) ? `<img src="${PDFTHUMB.get(d.id)}" alt="">` : 'PDF'}</span>`}<span class="txt" data-docver="${d.id}"><b>${esc(d.nombre)}</b><span class="small muted">${esc(d.factura ? 'Factura ' + d.factura + ' · ' : '')}${new Date(d.at).toLocaleDateString('es-EC', { day:'2-digit', month:'short', year:'numeric' })}</span></span><button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button></div>`).join('')}</div></details>` : ''; })()}
       <label class="field"><span>Moneda de sus facturas</span><select class="inp" id="pmo-${p.id}" data-prov="${p.id}" data-k="moneda"><option value="USD" ${p.moneda !== 'RMB' ? 'selected' : ''}>Dólares (USD)</option><option value="RMB" ${p.moneda === 'RMB' ? 'selected' : ''}>Yuanes (RMB ¥)</option></select></label>
       <label class="setrow" style="padding:10px 12px"><span class="txt"><b>Tallas chinas</b><span class="small muted">Al importar baja una talla: M → S, L → M, XL → L</span></span><span class="switch"><input type="checkbox" data-prov="${p.id}" data-k="tallaChina" ${esChina(p) ? 'checked' : ''} aria-label="Tallas chinas"><span></span></span></label>
       <div class="fx">
@@ -3467,7 +3466,7 @@ q.addEventListener('input',ap);fil.addEventListener('click',function(e){var b=e.
     const blob = new Blob([html], { type:'text/html' });
     const name = `Catalogo-sin-internet-${fecha.toISOString().slice(0, 10)}.html`;
     progDone(); progEnd();
-    if (S.downloads){ await S.downloads.save({ filename:name, data:blob }); }
+    if (S.downloads){ await bajarArchivo({ filename:name, data:blob }); }
     else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
     toast(`Listo · ${arts.length} artículos · ${pesoTxt(blob.size)}`);
   } catch (e) { progEnd(); if (e && e.code !== 'declined') toast('No se pudo crear el archivo: ' + (e.message || e)); }
@@ -3546,7 +3545,7 @@ async function exportarReportePdf(){
     for (let i = 1; i <= pages; i++){ doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120,128,124); doc.text(txt(`Reporte de artículos · ${fTxt}`), M, H - 6); doc.text(`Página ${i} de ${pages}`, W - M, H - 6, { align:'right' }); }
     const blob = doc.output('blob'); const name = `Reporte-articulos-${fecha.toISOString().slice(0, 10)}.pdf`;
     progDone(); progEnd();
-    if (S.downloads) await S.downloads.save({ filename:name, data:blob });
+    if (S.downloads) await bajarArchivo({ filename:name, data:blob });
     else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
     toast(`Reporte listo · ${pages} páginas · ${pesoTxt(blob.size)}`);
   } catch (e) { progEnd(); if (e && e.code !== 'declined') toast('No se pudo crear el reporte: ' + (e.message || e)); }
@@ -3915,7 +3914,7 @@ function vDocs(meta, editable){
   return `<div class="section"><div class="section-h"><span class="label">Facturas y documentos${l.length ? ' · ' + l.length : ''}</span>${editable && S.assets ? `<button class="btn" data-docadd="1" style="padding:7px 12px">${I.plus}Captura o PDF</button>` : ''}</div>
     ${l.length ? `<div class="docs">${l.map(d => `<div class="doc">${d.tipo === 'img' ? `<img src="${esc(BLOB(d.assetId))}" alt="" loading="lazy" data-docver="${d.id}">` : `<span class="docpdf" data-docver="${d.id}" data-pdfthumb="${d.id}">${PDFTHUMB.has(d.id) ? `<img src="${PDFTHUMB.get(d.id)}" alt="">` : 'PDF'}</span>`}
         <span class="txt" data-docver="${d.id}"><b>${esc(d.nombre)}</b><span class="small muted">${esc(d.factura ? 'Factura ' + d.factura + ' · ' : '')}${pesoTxt(d.bytes)} · ${new Date(d.at).toLocaleDateString('es-EC', { day:'2-digit', month:'short' })}${d.origen === 'importacion' ? ' · de la importación' : ''}</span></span>
-        ${S.downloads ? `<button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button>` : ''}${editable ? (S.docDel === d.id ? `<button class="btn danger" data-docrm="${d.id}" style="padding:5px 9px">Borrar</button>` : `<button class="x" data-docaskrm="${d.id}" aria-label="Quitar">×</button>`) : ''}</div>`).join('')}</div>`
+        <button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button>${editable ? (S.docDel === d.id ? `<button class="btn danger" data-docrm="${d.id}" style="padding:5px 9px">Borrar</button>` : `<button class="x" data-docaskrm="${d.id}" aria-label="Quitar">×</button>`) : ''}</div>`).join('')}</div>`
       : `<div class="small muted">${S.assets ? 'Guarda aquí las capturas o el PDF de la factura de esta compra.' : 'Abre la app desde claude.ai para guardar archivos.'}</div>`}</div>`;
 }
 
@@ -3947,7 +3946,7 @@ function vDocView(){
   const v = S.docView; const l = v.ids.map(id => (S.docs || []).find(x => x.id === id)).filter(Boolean);
   return `<div class="dview" role="dialog" aria-label="Documentos"><div class="lb-top"><span class="small"><b>${esc(v.titulo)}</b> · <span id="dvcnt">${v.i + 1} / ${l.length}</span></span><button data-act="dvclose" aria-label="Cerrar">×</button></div>
     <div class="dv-body" id="dvbody">${l.map((d, i) => `<div class="dv-it" id="dv-${d.id}" data-dvi="${i}">
-      <div class="dv-cap"><span>${i + 1}. ${esc(d.nombre)}</span>${S.downloads ? `<button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button>` : ''}</div>
+      <div class="dv-cap"><span>${i + 1}. ${esc(d.nombre)}</span><button class="iconbtn" data-docdl="${d.id}" aria-label="Descargar">${I.dl}</button></div>
       ${d.tipo === 'img' ? `<img src="${esc(BLOB(d.assetId))}" alt="${esc(d.nombre)}" loading="${Math.abs(i - v.i) < 3 ? 'eager' : 'lazy'}" decoding="async">`
         : `<div class="dv-pages" data-pdfpages="${d.id}">${Array.isArray(PDFPAG.get(d.id)) ? PDFPAG.get(d.id).map((u, k) => `<img src="${u}" alt="Página ${k + 1}">`).join('') : '<div class="small" style="padding:28px 12px;text-align:center">Preparando vista previa del PDF…</div>'}</div>
           <button class="linkbtn" data-docpdf="${d.id}" style="color:#fff;margin:6px 12px">Abrir PDF</button>`}</div>`).join('')}
@@ -3984,7 +3983,7 @@ async function abrirDoc(id, forzarPdf){ const d = (S.docs || []).find(x => x.id 
     const ids = (grupo.some(x => x.id === id) ? grupo : [d]).map(x => x.id);
     S.docView = { ids, i:Math.max(0, ids.indexOf(id)), titulo:sh ? ((prov(sh.proveedorId) || {}).nombre || '') + (sh.factura ? ' · F' + sh.factura : '') : ((prov(d.proveedorId) || {}).nombre || 'Documentos') };
     render(); requestAnimationFrame(() => { const el = document.getElementById('dv-' + id); if (el) el.scrollIntoView({ block:'start' }); }); return; }
-  try { const b = await (await fetch(BLOB(d.assetId))).blob(); usoAdd('tb', b.size); const u = URL.createObjectURL(b); const w = window.open(u, '_blank'); if (!w && S.downloads) await S.downloads.save({ filename:d.nombre, data:b }); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { toast('No se pudo abrir el PDF'); } }
+  try { const b = await (await fetch(BLOB(d.assetId))).blob(); usoAdd('tb', b.size); const u = URL.createObjectURL(b); const w = window.open(u, '_blank'); if (!w) await bajarArchivo({ filename:d.nombre, data:b }); setTimeout(() => URL.revokeObjectURL(u), 60000); } catch (e) { toast('No se pudo abrir el PDF'); } }
 
 /* ---------- Lo importado de una factura va a "En camino", no a bodega ----------
    La factura dice lo que se compró, no lo que llegó. Por eso crea (o completa)
@@ -4351,7 +4350,7 @@ async function exportarListaEmpaque(vid, compraId){
     [...pp.values()].forEach(o => rs.addRow({ prov:o.prov, est:o.est.size, q:o.q, lb:Math.round(o.lb * 100) / 100 })); rs.getRow(1).font = { bold:true };
     const buf = await wb.xlsx.writeBuffer(); const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const name = `Lista-empaque-${compraId ? (limpioNom((prov(cs[0].proveedorId) || {}).nombre) || 'compra') + (cs[0].factura ? '-F' + limpioNom(cs[0].factura) : '') : limpioNom(v ? v.nombre : 'viaje') || 'viaje'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    if (S.downloads) await S.downloads.save({ filename:name, data:blob }); else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
+    if (S.downloads) await bajarArchivo({ filename:name, data:blob }); else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
     toast(`Lista de empaque · ${tq} pzs de ${pp.size} ${pp.size === 1 ? 'proveedor' : 'proveedores'}`);
   } catch (e) { if (e && e.code !== 'declined') toast('No se pudo crear el Excel: ' + (e.message || e)); }
 }
@@ -4517,7 +4516,7 @@ async function exportarRespaldo(){
     const blob = await zip.generateAsync({ type:'blob', mimeType:'application/zip' }, m => progPhase(`Comprimiendo ${Math.round(m.percent)}%`));
     progDone(); progEnd();
     const name = `Respaldo-Packing-y-Conteo-${new Date().toISOString().slice(0, 10)}.zip`;
-    if (S.downloads){ await S.downloads.save({ filename:name, data:blob }); }
+    if (S.downloads){ await bajarArchivo({ filename:name, data:blob }); }
     else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
     toast(`Respaldo listo · ${arts.length} artículos · ${Object.keys(fotos).length} fotos${fallidas ? ` · ${fallidas} no se pudieron incluir` : ''}`);
   } catch (e) { progEnd(); if (e && e.code === 'declined') return; toast('No se pudo crear el respaldo: ' + (e.message || e)); }
@@ -4623,7 +4622,7 @@ async function exportarExcel(todos, opts){
     const p = S.bProv && prov(S.bProv); const hoy = new Date().toISOString().slice(0, 10);
     const name = opts.nombre ? opts.nombre : todos ? `Base-de-datos-${hoy}.xlsx` : `Existencias-${p ? (inicialesProv(p.nombre) || 'Prov') : 'Todos'}-${hoy}.xlsx`;
     progDone(); progEnd();
-    if (S.downloads){ await S.downloads.save({ filename:name, data:blob }); }
+    if (S.downloads){ await bajarArchivo({ filename:name, data:blob }); }
     else { const u = URL.createObjectURL(blob); const el = document.createElement('a'); el.href = u; el.download = name; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); }
     if (opts.toast){ toast(opts.toast); return; }
     toast(`Excel listo · ${lista.length} ${lista.length === 1 ? 'artículo' : 'artículos'}`);
@@ -4717,7 +4716,7 @@ document.addEventListener('click', async e => {
   if (d.lbnav){ const n = S.lb.i + (+d.lbnav); if (n >= 0 && n < S.lb.fotos.length){ S.lb.i = n; S.lb.z = false; render(); } return; }
   if (d.act === 'lbclose'){ S.lb = null; render(); return; }
   if (d.act === 'dvclose'){ S.docView = null; render(); return; }
-  if (d.act === 'lbdl'){ const ref = S.lbRefs && S.lbRefs.refs[S.lb.i]; if (!ref) return; try { const b = await (await fetch(fotoUrl(ref))).blob(); await S.downloads.save({ filename:nombreFoto(S.lbRefs.a, S.lb.i), data:b }); } catch (er) { if (er && er.code !== 'declined') toast('No se pudo descargar'); } return; }
+  if (d.act === 'lbdl'){ const ref = S.lbRefs && S.lbRefs.refs[S.lb.i]; if (!ref) return; try { const b = await (await fetch(fotoUrl(ref))).blob(); await bajarArchivo({ filename:nombreFoto(S.lbRefs.a, S.lb.i), data:b }); } catch (er) { if (er && er.code !== 'declined') toast('No se pudo descargar'); } return; }
   if (d.fmay){ const [id, f] = d.fmay.split(':'); await aplicarMult('prov:' + id, +f); return; }
   if (d.npfy){ S.npFy = +d.npfy; render(); return; }
   if (d.reveal && d.reveal.startsWith('res:')){ S.reveal.has(d.reveal) ? S.reveal.delete(d.reveal) : S.reveal.add(d.reveal); S.resOpen = true; render(); return; }
@@ -4764,7 +4763,7 @@ document.addEventListener('click', async e => {
   if (d.docpdf){ await abrirDoc(d.docpdf, true); return; }
   if (d.docart && S.sheet && S.sheet.a){ const { docs } = docsArt(S.sheet.a); const dd = docs.find(x => x.id === d.docart); if (dd && dd.tipo === 'pdf'){ await abrirDoc(dd.id, true); return; }
     S.docView = { ids:docs.map(x => x.id), i:Math.max(0, docs.findIndex(x => x.id === d.docart)), titulo:[S.sheet.a.estilo, S.sheet.a.nombre].filter(Boolean).join(' · ') }; render(); requestAnimationFrame(() => { const el = document.getElementById('dv-' + d.docart); if (el) el.scrollIntoView({ block:'start' }); }); return; }
-  if (d.docdl){ const dd = (S.docs || []).find(x => x.id === d.docdl); if (dd) try { const b = await (await fetch(BLOB(dd.assetId))).blob(); usoAdd('tb', b.size); await S.downloads.save({ filename:dd.nombre, data:b }); } catch (er) { if (er && er.code !== 'declined') toast('No se pudo descargar'); } return; }
+  if (d.docdl){ const dd = (S.docs || []).find(x => x.id === d.docdl); if (dd) try { const b = await (await fetch(BLOB(dd.assetId))).blob(); usoAdd('tb', b.size); await bajarArchivo({ filename:dd.nombre, data:b }); } catch (er) { if (er && er.code !== 'declined') toast('No se pudo descargar'); } return; }
   if (d.docaskrm){ S.docDel = d.docaskrm; render(); return; }
   if (d.docrm){ const dd = (S.docs || []).find(x => x.id === d.docrm); S.docDel = null; if (dd){ try { await remove('documentos', dd.id); if (S.mode !== 'db') S.docs = S.docs.filter(x => x.id !== dd.id); if (S.assets && !(S.docs || []).some(x => x.id !== dd.id && x.assetId === dd.assetId)) await S.assets.delete(dd.assetId).catch(() => {}); toast('Archivo borrado'); } catch (er) { toast('No se pudo borrar'); } } render(); return; }
   if (d.ctab && S.sheet && S.sheet.kind === 'compra'){ S.sheet.ctab = d.ctab; render(); const sb = document.querySelector('.sh-body'); if (sb) sb.scrollTop = 0; return; }
@@ -5114,6 +5113,12 @@ document.addEventListener('pointerup', swEnd); document.addEventListener('pointe
 document.addEventListener('pointerdown', e => { if (e.target.closest('#qmode, #qclear, #bqmode, #bqclear, #estmode, #facmode, .qscan, .qgo')) e.preventDefault(); }, true);
 document.addEventListener('focusout', e => { const t = e.target; if ((t.id === 'e-col' || t.id === 'e-tal') && t.value.trim() && !S.rendering){ if (commitPend()) setTimeout(render, 0); } });
 // Copiar al portapapeles (con respaldo para vistas donde la API no está permitida)
+// Descargar un archivo: en claude.ai con su permiso de descargas; en el sitio web, descarga normal del navegador
+async function bajarArchivo({ filename, data }){
+  if (S.downloads) return S.downloads.save({ filename, data });
+  const u = URL.createObjectURL(data); const el = document.createElement('a'); el.href = u; el.download = filename; el.rel = 'noopener';
+  document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
+}
 async function copiarTexto(v){
   v = String(v || '').trim(); if (!v) return false;
   try { if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(v); return true; } } catch {}
