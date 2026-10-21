@@ -623,7 +623,7 @@ const I = {
 const S = {
   ready:false, mode:'local', db:null, assets:null, downloads:null,
   provs:[], arts:[],
-  tab: lsGet('cat.tab','arts'), q:'', fProv:'',
+  tab: lsGet('cat.tab','arts'), q:'', fProv:'', fLinea:'',
   pdf:null, pdfName:'', pdfThumbs:[], cands:[], parsing:false, importProv:lsGet('cat.impProv',''), importFact:'', importMsg:'',
   impMode: lsGet('cat.impMode2','factcap'), cOrd:lsGet('cat.cord', 'az'), cq:'', invShots:[], invSum:null, movs:[], bNivel:lsGet('cat.bnivel','resumen'), pVista:lsGet('cat.pvista','detalle'), provOpen:null, bFiltro:'', bProv:'', bq:'', bVerMas:false, fFoto:'', selMode:false, selIds:new Set(), selConfirm:false, swOpen:null, swConfirm:null, cfg:Object.assign({ verMenudeo:false, verMayoreo:true, verCosto:false, subMay:'Catálogo mayorista · precios por unidad', subMen:'Catálogo', fechaModo:'completa', fechaTexto:'', fotosExtra:true, verMult:true }, lsGet('cat.cfgPrecios', {})), reveal:new Set(), quickFotoFor:null, impMoneda:null, tc:lsGet('cat.tc',''), sample:null, sampleImg:null, reading:'', importing:'',
   cat: Object.assign({ tipo:'menudeo', titulo:'Nueva colección', contacto:'', prov:'', fact:'', categoria:'', porPag:4 }, lsGet('cat.cfg', {})),
@@ -1202,9 +1202,18 @@ function render(){
   if (S.sheet && S.sheet.kind === 'clean') drawClean();
 }
 
+// Línea = tipo de prenda del artículo (Blusa, Pantalón, Casaca…)
+const lineaArt = a => cap(String(a.nombre || '').trim()) || 'Sin tipo';
+function vChipsLinea(){
+  const base = S.arts.filter(a => !S.fProv || a.proveedorId === S.fProv); const cnt = new Map();
+  base.forEach(a => { const l = lineaArt(a); cnt.set(l, (cnt.get(l) || 0) + 1); });
+  const ls = [...cnt.entries()].sort((x, y) => (x[0] === 'Sin tipo') - (y[0] === 'Sin tipo') || x[0].localeCompare(y[0]));
+  if (ls.length < 2 && !S.fLinea) return '';
+  return `<div class="hscroll"><button class="chip" data-flinea="" aria-pressed="${!S.fLinea}">Todas las líneas · ${base.length}</button>${ls.map(([l, n]) => `<button class="chip" data-flinea="${esc(l)}" aria-pressed="${S.fLinea === l}">${esc(l)} · ${n}</button>`).join('')}${S.fLinea && !cnt.has(S.fLinea) ? `<button class="chip" data-flinea="${esc(S.fLinea)}" aria-pressed="true">${esc(S.fLinea)} · 0</button>` : ''}</div>`;
+}
 function artsFiltrados(){
   const q = S.q.trim().toLowerCase();
-  return S.arts.filter(a => (!S.fProv || a.proveedorId === S.fProv) &&
+  return S.arts.filter(a => (!S.fProv || a.proveedorId === S.fProv) && (!S.fLinea || lineaArt(a) === S.fLinea) &&
     (!S.fFoto || (S.fFoto === 'si' ? (a.fotos || []).length > 0 : !(a.fotos || []).length)) &&
     (!S.fSinPrecio || precio(a, verMay() ? 'mayoreo' : 'menudeo') == null) &&
     (!q || [a.estilo, a.nombre, a.factura, a.categoria, ...(a.colores||[])].join(' ').toLowerCase().includes(q))).sort(ordenFn(ordDe('arts')));
@@ -1261,6 +1270,7 @@ function vArts(){
     <div class="search conscan">${I.search}<input class="inp qinp" id="q" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Buscar estilo" value="${esc(S.q)}" data-bind="q" ${qModo() === 'num' ? '' : 'hidden'}><input class="inp qinp" id="qa" type="search" inputmode="text" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Estilo, nombre, color…" value="${esc(S.q)}" data-bind="q" ${qModo() === 'num' ? 'hidden' : ''}><button type="button" class="qscan" data-scan="q" aria-label="Escanear código de barras, QR o leer el código de una etiqueta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8"/></svg></button><button type="button" class="qmode" id="qmode" data-act="qmode" aria-label="${qModo() === 'num' ? 'Cambiar a teclado de letras' : 'Cambiar a teclado de números'}">${qModo() === 'num' ? 'ABC' : '123'}</button><button type="button" class="qclear" id="qclear" data-act="qclear" aria-label="Borrar búsqueda" ${S.q ? '' : 'hidden'}>×</button></div><button type="button" class="qgo" data-qgo="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
     <div id="qhist">${vHist()}</div>
     <div class="hscroll"><button class="chip" data-fprov="" aria-pressed="${!S.fProv}">Todos · ${S.arts.length}</button>${S.provs.map(p => { const n = S.arts.filter(a => a.proveedorId === p.id).length; return n ? `<button class="chip" data-fprov="${p.id}" aria-pressed="${S.fProv === p.id}">${esc(p.nombre)} · ${n}</button>` : ''; }).join('')}</div>
+    ${vChipsLinea()}
     <div class="filtros"><div class="hscroll">
         <button class="chip" data-ffoto="" aria-pressed="${!S.fFoto}">Con y sin foto</button>
         <button class="chip" data-ffoto="si" aria-pressed="${S.fFoto === 'si'}">Con foto · ${conF}</button>
@@ -4310,6 +4320,7 @@ document.addEventListener('click', async e => {
     if (d.movtipo === 'conteo' && a){ const { cols, tals } = ejes(a); cols.forEach(c => tals.forEach(t => { s2.vals[skey(c, t)] = +((a.stock || {})[skey(c, t)] || 0); })); } render(); return; }
   if (d.ffoto !== undefined){ S.fFoto = d.ffoto; render(); return; }
   if (d.fprov !== undefined){ S.fProv = d.fprov; render(); return; }
+  if (d.flinea !== undefined){ S.fLinea = d.flinea; render(); return; }
   if (d.pick){ S.sheet = { kind:'pick', target:d.pick, q:'', back:S.sheet }; render(); return; }
   if (d.pickval){ pickSet(d.pickval); return; }
   if (d.pickadd){ const v = S.sheet.q.trim(); const val = v.charAt(0).toUpperCase() + v.slice(1);
