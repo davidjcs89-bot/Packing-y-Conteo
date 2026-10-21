@@ -181,6 +181,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .cnt-det{display:flex;flex-direction:column;gap:3px;margin-top:6px;font-size:13px}.cnt-acc{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
 .ctp-list{display:flex;flex-direction:column}.ctp-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 2px;border-bottom:1px solid var(--line)}.ctp-n{flex:1;min-width:120px;font-weight:600}.ctp-acc{display:flex;gap:12px;flex-wrap:wrap}
 .ctp-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.ctp-pick{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:50vh}
+.sh-est[data-copyest]{cursor:pointer;-webkit-user-select:all;user-select:all}
 .cbusbar{display:flex;flex-direction:column;gap:8px}.cord{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .cqstick{position:sticky;top:0;z-index:20;background:var(--bg);margin:-16px -16px 0;padding:10px 16px 8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 10px -10px rgba(0,0,0,.35)}
 .sheet .sh-inner{max-width:480px;margin:0 auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
@@ -2164,7 +2165,7 @@ function vSheet(){
         return `<span class="how">${txt}</span>`; })()}
       ${multChips(t === 'mayoreo' ? 'ed' : 'edm', '', man ? (cb(a) ? (() => { const L = multsDe(t === 'mayoreo' ? 'ed' : 'edm'); const hit = L.find(m => Math.ceil(r2(cb(a) * m)) === +a[k]); return hit ?? a[k] / cb(a); })() : null) : f, cb(a))}
       ${man && calc(t) != null ? `<button class="linkbtn" data-pman="${k}">Usar el del proveedor</button>` : ''}</div>`; };
-    return `<div class="sheet" role="dialog" aria-label="Artículo"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>${s.isNew ? 'Nuevo artículo' : 'Artículo'} <span class="code sh-est" id="sh-est">${esc(a.estilo || '')}</span></h2></div>
+    return `<div class="sheet" role="dialog" aria-label="Artículo"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>${s.isNew ? 'Nuevo artículo' : 'Artículo'} <span class="code sh-est" id="sh-est" data-copyest="1" title="Toca para copiar el estilo">${esc(a.estilo || '')}</span></h2></div>
         <div class="sh-sub"><span class="sh-cant" id="sh-cant">${cantCab(s)}</span><span class="mu">×</span><span class="sh-cost" id="sh-cost">${costoCab(a)}</span><span class="mu">=</span><span class="sh-tot" id="sh-tot">${totCab(s)}</span></div>
         <div class="edtabs" role="tablist"><button role="tab" data-edtab="basico" aria-selected="${(s.tab || 'basico') === 'basico'}">Básico</button><button role="tab" data-edtab="precio" aria-selected="${s.tab === 'precio'}">Costo y precio</button><button role="tab" data-edtab="comp" aria-selected="${s.tab === 'comp'}">Composición</button><button role="tab" data-edtab="compra" aria-selected="${s.tab === 'compra'}">Compra</button><button role="tab" data-edtab="config" aria-selected="${s.tab === 'config'}" aria-label="Configuración">${I.gear || '⚙'}</button></div></div>
       <div class="sh-body"><div class="sh-inner">
@@ -4356,6 +4357,7 @@ document.addEventListener('click', async e => {
   if (ed){ S.reveal.delete('ed'); openEdit(S.arts.find(a => a.id === ed.dataset.edit)); return; }
   const dv = e.target.closest('[data-docver]'); if (dv && !e.target.closest('button')){ await abrirDoc(dv.dataset.docver); return; }
   const dva = e.target.closest('img[data-docart]'); if (dva && S.sheet && S.sheet.a){ const { docs } = docsArt(S.sheet.a); S.docView = { ids:docs.map(x => x.id), i:Math.max(0, docs.findIndex(x => x.id === dva.dataset.docart)), titulo:[S.sheet.a.estilo, S.sheet.a.nombre].filter(Boolean).join(' · ') }; render(); requestAnimationFrame(() => { const el = document.getElementById('dv-' + dva.dataset.docart); if (el) el.scrollIntoView({ block:'start' }); }); return; }
+  { const ce = e.target.closest('[data-copyest]'); if (ce){ const v = ce.textContent.trim(); if (await copiarTexto(v)) toast('Estilo copiado: ' + v); else toast('No se pudo copiar'); return; } }
   { const tp = e.target.closest('[data-tpren],[data-tpmerge],[data-tpdup],[data-tprm],[data-tpadd],[data-tpnuevo]'); if (tp){ const d2 = tp.dataset;
       if (d2.tpren){ const v = await dlgTexto('Renombrar "' + d2.tpren + '"', d2.tpren); if (v && v !== d2.tpren){ const n = await cambiarTipo([d2.tpren], cap(v) === v.toLowerCase() ? cap(v) : v); toast(`Tipo renombrado a "${v}"${n ? ' · ' + n + ' artículos actualizados' : ''}`); } }
       else if (d2.tpmerge){ const v = await dlgTipo(`Combinar "${d2.tpmerge}" con…`, [d2.tpmerge]); if (v){ const n = await cambiarTipo([d2.tpmerge], v); toast(`"${d2.tpmerge}" se combinó en "${v}"${n ? ' · ' + n + ' artículos' : ''}`); } }
@@ -4818,8 +4820,18 @@ const swEnd = () => { if (!sw) return; const s2 = sw; sw = null; if (!s2.on) ret
 document.addEventListener('pointerup', swEnd); document.addEventListener('pointercancel', swEnd);
 document.addEventListener('pointerdown', e => { if (e.target.closest('#qmode, #qclear, #bqmode, #bqclear, #estmode, #facmode, .qscan, .qgo')) e.preventDefault(); }, true);
 document.addEventListener('focusout', e => { const t = e.target; if ((t.id === 'e-col' || t.id === 'e-tal') && t.value.trim() && !S.rendering){ if (commitPend()) setTimeout(render, 0); } });
+// Copiar al portapapeles (con respaldo para vistas donde la API no está permitida)
+async function copiarTexto(v){
+  v = String(v || '').trim(); if (!v) return false;
+  try { if (navigator.clipboard && navigator.clipboard.writeText){ await navigator.clipboard.writeText(v); return true; } } catch {}
+  try { const ta = document.createElement('textarea'); ta.value = v; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:-100px;opacity:0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, v.length); const ok = document.execCommand('copy'); ta.remove(); return ok; } catch { return false; }
+}
 document.addEventListener('focusin', e => {
   const t = e.target; if (S.refocus || !t.matches) return;
+  // Estilo dentro del artículo: al tocarlo se selecciona y se copia
+  if ((t.id === 'e-estilo' || t.id === 'e-estiloa') && t.value){ const v = t.value;
+    setTimeout(() => { try { t.setSelectionRange(0, t.value.length); } catch { try { t.select(); } catch {} } }, 0);
+    copiarTexto(v).then(ok => { if (ok) toast('Estilo copiado: ' + v); }); return; }
   if (['q', 'qa', 'bq', 'bqa'].includes(t.id) && S.qNoSel) return;
   if (['q', 'qa', 'bq', 'bqa'].includes(t.id) && t.value){ setTimeout(() => { try { t.setSelectionRange(0, t.value.length); } catch { try { t.select(); } catch {} } }, 0); return; }
   if (t.matches('[data-mv],[data-ini],[data-gin]')){ setTimeout(() => { try { t.setSelectionRange(0, t.value.length); } catch {} }, 0); return; }
