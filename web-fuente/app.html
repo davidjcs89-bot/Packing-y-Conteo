@@ -669,7 +669,7 @@ const fechaCampos = () => `
   </select></label>
   ${S.cfg.fechaModo === 'texto' ? `<label class="field"><span>Texto en lugar de la fecha</span><input class="inp" id="cfgFechaTxt" data-cfgtxt="fechaTexto" value="${esc(S.cfg.fechaTexto)}" placeholder="Temporada Otoño 2026"></label>` : ''}`;
 const subCampo = (tipo, id) => `<label class="field"><span>Subtítulo ${tipo === 'mayoreo' ? 'mayoreo' : 'menudeo'}</span><input class="inp" id="${id}" data-cfgtxt="${tipo === 'mayoreo' ? 'subMay' : 'subMen'}" value="${esc(tipo === 'mayoreo' ? S.cfg.subMay : S.cfg.subMen)}" placeholder="Sin subtítulo"></label>`;
-const catTipo = () => (S.cat.tipo === 'menudeo' && verMen()) || !verMay() ? 'menudeo' : 'mayoreo';
+const catTipo = () => S.cat.tipo === 'menudeo' ? 'menudeo' : 'mayoreo';
 async function saveCfg(){
   lsSet('cat.cfgPrecios', S.cfg);
   const { busquedas, ...cfgNube } = S.cfg;
@@ -2145,9 +2145,8 @@ function vCat(){
   const tipo = catTipo(); const may = tipo === 'mayoreo';
   const prev = chosen.slice(0, 4);
   return `
-    ${verMen() && verMay() ? `<div class="seg" role="group" aria-label="Tipo de catálogo">
-      <button data-tipo="menudeo" aria-pressed="${!may}">Menudeo</button><button class="may" data-tipo="mayoreo" aria-pressed="${may}">Mayoreo</button></div>`
-      : `<div class="small muted">Catálogo de ${may ? 'mayoreo' : 'menudeo'}. Para cambiarlo, activa el otro precio en Configuración.</div>`}
+    <div class="seg" role="group" aria-label="Precios del catálogo">
+      <button class="may" data-tipo="mayoreo" aria-pressed="${may}">Precios de mayoreo</button><button data-tipo="menudeo" aria-pressed="${!may}">Precios de menudeo</button></div>
     <div class="panel">
       <label class="field"><span>Título del catálogo</span><input class="inp" id="catT" data-cat="titulo" value="${esc(c.titulo)}"></label>
       ${subCampo(tipo, 'catSub')}
