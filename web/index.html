@@ -5498,6 +5498,9 @@ async function doImport(){
       S.cands = S.cands.filter(x => !g.cands.includes(x));
       progDone();
     }
+    // Tipos de artículo nuevos que trajo la factura (ej. "Pendientes", "Collar"): se agregan al catálogo de tipos
+    { const nuevosT = uniq([...grupos.values()].map(g => String(g.nombre || '').trim()).filter(t => t && !tipos().some(x => sinAcento(x) === sinAcento(t))));
+      if (nuevosT.length){ S.cfg.tipos = uniq([...tipos(), ...nuevosT]); await saveCfg(); setTimeout(() => toast(`Tipos nuevos agregados al catálogo: ${nuevosT.join(', ')}`), 3600); } }
     const junt = sel.length - grupos.size;
     setTimeout(() => revisarFotos(null, true), 1500);
     if (S.stkOmitidas){ setTimeout(() => toast(`${S.stkOmitidas} ${S.stkOmitidas === 1 ? 'artículo ya tenía' : 'artículos ya tenían'} la entrada de esta factura; no se sumó otra vez`), 2600); S.stkOmitidas = 0; }
