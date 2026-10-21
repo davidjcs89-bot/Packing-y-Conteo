@@ -1364,7 +1364,7 @@ function render(){
   const title = { arts:'Artículos', bodega:'Bodega', import:'Importar factura', cat:'Crear catálogo', provs:'Proveedores' }[S.tab];
   let body;
   if (!S.ready) body = `<div class="stack"><div class="empty"><h3>Abriendo el catálogo…</h3><p class="muted small">Cargando artículos y proveedores.</p></div></div>`;
-  else body = `<div class="stack">${ S.tab === 'arts' ? vArts() : S.tab === 'bodega' ? vBodega() : S.tab === 'import' ? vImport() : S.tab === 'cat' ? vCat() : vProvs() }</div>`;
+  else body = `<div class="stack">${S.mode !== 'db' && !S.avisoLocalOff ? `<div class="note err small" style="display:flex;gap:8px;align-items:flex-start"><span><b>Sin conexión a la nube.</b> Lo que hagas aquí se guarda solo en este navegador: no lo verán los demás ni la app de Claude. Abre la app desde la app de Claude o desde claude.ai con tu sesión iniciada.</span><button class="linkbtn" data-act="avisolocal" aria-label="Ocultar aviso">×</button></div>` : ''}${ S.tab === 'arts' ? vArts() : S.tab === 'bodega' ? vBodega() : S.tab === 'import' ? vImport() : S.tab === 'cat' ? vCat() : vProvs() }</div>`;
   const keepScroll = (() => { const sb = document.querySelector('.sheet .sh-body'); const sk = S.sheet ? S.sheet.kind : null;
     const hz = [...document.querySelectorAll('.hr-cands, .hscroll, .thumb.multi')].map(el => el.scrollLeft);
     const dvb = document.getElementById('dvbody');
@@ -4801,6 +4801,7 @@ document.addEventListener('click', async e => {
     case 'xlsxall': exportarExcel(true); break;
     case 'respaldo': exportarRespaldo(); break;
     case 'blurscan': revisarBorrosas(); break;
+    case 'avisolocal': S.avisoLocalOff = true; render(); break;
     case 'resimp': $('#inResp').click(); break;
     case 'pycsalir': if (window.PYC_SALIR) window.PYC_SALIR(); break;
     case 'usoesp': usoEspacio(); break;
