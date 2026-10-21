@@ -2295,7 +2295,7 @@ function cardArt(a, n, tot){
       <div class="top"><span class="code">${n ? `<span class="ordn mono" title="Resultado ${n} de ${tot}">${n}</span>` : ''}${esc(a.estilo || 'Sin código')}${a.ejemplo ? ' <span class="tag">Ejemplo</span>' : ''}</span>${cst ? `<span class="cst mono">${cst}</span>` : ''}</div>
       <div class="name">${esc(a.nombre || 'Sin nombre')}${EMP() ? '' : `<span class="muted" style="font-weight:400"> · ${esc(p ? p.nombre : 'Sin proveedor')}</span>`}${tieneStock(a) ? ` <span class="stkpill ${totalStock(a) || a.soloCatalogo ? '' : 'cero'}">${totalStock(a) ? totalStock(a) + ' en bodega' : a.soloCatalogo ? 'Bajo pedido' : 'Agotado'}</span>` : ''}${pillsCamino(a.id)}</div>
       <div class="cols">${cols.length ? `<span class="dots">${cols.slice(0, 7).map(c => { const h = colHex(c); return `<i title="${esc(c)}" style="${h ? 'background:' + h : ''}" class="${h ? '' : 'unk'}"></i>`; }).join('')}${cols.length > 7 ? `<b>+${cols.length - 7}</b>` : ''}</span>` : '<span class="muted">Sin colores</span>'}<span class="tl">${esc((a.tallas || []).join(', '))}</span></div>
-      <div class="prices">${pm == null && py == null && !S.qEdit ? `<button class="pill qp warn" data-qprice="${a.id}:${verMay() ? 'pMay' : 'pMen'}">Poner precio</button>` : `${verMen() ? pill('pMen', '', 'Men', a.pMen ?? pm) : ''}${verMay() ? pill('pMay', 'may', 'May', a.pMay ?? py) : ''}`}</div>
+      <div class="prices">${pm == null && py == null && !S.qEdit ? `<button class="pill qp warn" data-qprice="${a.id}:${verMay() ? 'pMay' : 'pMen'}">Poner precio</button>` : `${pill('pMen', '', 'Men', a.pMen ?? pm)}${pill('pMay', 'may', 'May', a.pMay ?? py)}`}</div>
     </div></div></div>`;
 }
 
@@ -5155,7 +5155,12 @@ async function guardarQp(t, cancelar){
   const a = S.arts.find(x => x.id === id);
   if (!cancelar && a){ const v = num(t.value); const calc = (() => { const b = { ...a, [k]:null }; return precio(b, k === 'pMay' ? 'mayoreo' : 'menudeo'); })();
     const nuevo = v == null || v === calc ? null : v;
-    if (nuevo !== (a[k] ?? null)){ try { await save('articulos', id, { ...a, [k]:nuevo }); toast(`${a.estilo}: ${k === 'pMay' ? 'mayoreo' : 'menudeo'} ${money(nuevo ?? calc)}`); } catch (e) { toast('No se pudo guardar el precio'); } }
+    if (nuevo !== (a[k] ?? null)){
+      // Confirmar antes de guardar un precio editado a mano
+      const nom = k === 'pMay' ? 'mayoreo' : 'menudeo'; const antes = precio(a, k === 'pMay' ? 'mayoreo' : 'menudeo');
+      const ok = await elegirOpcion(`¿Guardar el precio de ${nom}?`, `${a.estilo}: ${antes != null ? money(antes) + ' → ' : ''}${money(nuevo ?? calc)}${nuevo == null ? ' (vuelve al múltiplo del proveedor)' : ''}`, [{ v:true, t:'Guardar', pri:true }], 'Cancelar');
+      if (!ok){ toast('Precio sin cambios'); render(); return; }
+      try { await save('articulos', id, { ...a, [k]:nuevo }); toast(`${a.estilo}: ${k === 'pMay' ? 'mayoreo' : 'menudeo'} ${money(nuevo ?? calc)}`); } catch (e) { toast('No se pudo guardar el precio'); } }
   }
   render();
 }
