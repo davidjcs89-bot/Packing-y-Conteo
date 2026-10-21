@@ -2643,6 +2643,7 @@ function vSheet(){
     const row = (k, t, d) => `<label class="setrow"><span class="txt"><b>${t}</b><span class="small muted">${d}</span></span><span class="switch"><input type="checkbox" data-cfg="${k}" ${S.cfg[k] ? 'checked' : ''} aria-label="${t}"><span></span></span></label>`;
     return `<div class="sheet" role="dialog" aria-label="Configuración"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>Configuración</h2></div></div>
       <div class="sh-body"><div class="sh-inner">
+        ${window.PYC_WEB ? `<div class="panel" style="display:flex;align-items:center;gap:10px;justify-content:space-between"><span><span class="small muted">Sesión</span><br><b>${EMP() ? 'Empleado' : 'Administrador'}</b></span><button class="btn" data-act="pycsalir">Cerrar sesión</button></div>` : ''}
         <span class="label">Apariencia</span>
         <div class="seg three" role="group" aria-label="Tema">${[['auto', 'Automático'], ['light', 'Claro'], ['dark', 'Oscuro']].map(([k, l]) => `<button data-tema="${k}" aria-pressed="${temaAct() === k}">${l}</button>`).join('')}</div>
         <div class="small muted">Automático sigue el modo claro u oscuro de tu teléfono. Se guarda en este dispositivo.</div>
@@ -2672,7 +2673,6 @@ function vSheet(){
         <span class="label" style="margin-top:8px">Respaldo y mudanza</span>
         <div class="panel"><div class="small muted">Descarga un solo archivo .zip con artículos, proveedores, existencias, movimientos, viajes, compras, conteos, configuración, fotos y facturas guardadas. Sirve para la app del iPhone (<b>Ajustes → Importar respaldo</b>) y para pasar todo al sitio web propio.</div>
           <button class="btn primary block" data-act="respaldo">Exportar respaldo (.zip)</button>
-          ${window.PYC_WEB ? `<button class="btn block" data-act="pycsalir">Cerrar sesión en este teléfono</button>` : ''}
           ${S.mode === 'db' && !EMP() ? `<button class="btn block" data-act="resimp">Importar respaldo (.zip)</button><div class="small muted">Importar agrega o actualiza lo que viene en el respaldo; no borra lo que ya tienes aquí.</div>` : ''}</div>
         <span class="label" style="margin-top:8px">Sin internet</span>
         <div class="panel"><div class="small muted">Descarga una copia de solo lectura con todos tus artículos, fotos, precios, composición y existencias para revisarla sin conexión (por ejemplo en un vuelo).</div>
