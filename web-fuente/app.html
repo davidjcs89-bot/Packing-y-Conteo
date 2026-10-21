@@ -179,6 +179,8 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .cnt-prog{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14px;flex-wrap:wrap}
 .cnt-it{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}.cnt-it summary{display:flex;justify-content:space-between;gap:8px;cursor:pointer;font-size:14px;list-style:none}.cnt-it summary::-webkit-details-marker{display:none}
 .cnt-det{display:flex;flex-direction:column;gap:3px;margin-top:6px;font-size:13px}.cnt-acc{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:6px}
+.ctp-list{display:flex;flex-direction:column}.ctp-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 2px;border-bottom:1px solid var(--line)}.ctp-n{flex:1;min-width:120px;font-weight:600}.ctp-acc{display:flex;gap:12px;flex-wrap:wrap}
+.ctp-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.ctp-pick{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:50vh}
 .cbusbar{display:flex;flex-direction:column;gap:8px}.cord{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .cqstick{position:sticky;top:0;z-index:20;background:var(--bg);margin:-16px -16px 0;padding:10px 16px 8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 10px -10px rgba(0,0,0,.35)}
 .sheet .sh-inner{max-width:480px;margin:0 auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
@@ -1055,7 +1057,7 @@ async function importarN41(pdf, r){
   if (pv) r.vendedor = pv.nombre;
   if (pv){ S.importProv = pv.id; lsSet('cat.impProv', pv.id); }
   buildInvCands();
-  S.importMsg = `Factura ${r.vendedor ? r.vendedor + ' ' : ''}Nº ${r.factura || '—'}${r.fecha ? ' del ' + fechaTxt(r.fecha) : ''}${r.pagado ? ' · pagada' : ''}. ${pv ? '' : r.vendedor ? `Elige o crea el proveedor "${r.vendedor}". ` : ''}Elige el tipo de prenda de cada estilo.`;
+  S.importMsg = `Factura ${r.vendedor ? r.vendedor + ' ' : ''}Nº ${r.factura || '—'}${r.fecha ? ' del ' + fechaTxt(r.fecha) : ''}${r.pagado ? ' · pagada' : ''}. ${pv ? '' : r.vendedor ? `Elige o crea el proveedor "${r.vendedor}". ` : ''}Elige el tipo de artículo de cada estilo.`;
   S.importMsgTipo = 'info';
 }
 async function importPdf(file){
@@ -1229,14 +1231,14 @@ function render(){
   if (S.sheet && S.sheet.kind === 'clean') drawClean();
 }
 
-// Línea = tipo de prenda del artículo (Blusa, Pantalón, Casaca…)
+// Tipo de artículo (Blusa, Pantalón, Casaca…): filtro de Artículos
 const lineaArt = a => cap(String(a.nombre || '').trim()) || 'Sin tipo';
 function vChipsLinea(){
   const base = S.arts.filter(a => !S.fProv || a.proveedorId === S.fProv); const cnt = new Map();
   base.forEach(a => { const l = lineaArt(a); cnt.set(l, (cnt.get(l) || 0) + 1); });
   const ls = [...cnt.entries()].sort((x, y) => (x[0] === 'Sin tipo') - (y[0] === 'Sin tipo') || x[0].localeCompare(y[0]));
   if (ls.length < 2 && !S.fLinea) return '';
-  return `<div class="hscroll"><button class="chip" data-flinea="" aria-pressed="${!S.fLinea}">Todas las líneas · ${base.length}</button>${ls.map(([l, n]) => `<button class="chip" data-flinea="${esc(l)}" aria-pressed="${S.fLinea === l}">${esc(l)} · ${n}</button>`).join('')}${S.fLinea && !cnt.has(S.fLinea) ? `<button class="chip" data-flinea="${esc(S.fLinea)}" aria-pressed="true">${esc(S.fLinea)} · 0</button>` : ''}</div>`;
+  return `<div class="hscroll"><button class="chip" data-flinea="" aria-pressed="${!S.fLinea}">Todos los tipos · ${base.length}</button>${ls.map(([l, n]) => `<button class="chip" data-flinea="${esc(l)}" aria-pressed="${S.fLinea === l}">${esc(l)} · ${n}</button>`).join('')}${S.fLinea && !cnt.has(S.fLinea) ? `<button class="chip" data-flinea="${esc(S.fLinea)}" aria-pressed="true">${esc(S.fLinea)} · 0</button>` : ''}</div>`;
 }
 function artsFiltrados(){
   const q = S.q.trim().toLowerCase();
@@ -2200,7 +2202,7 @@ function vSheet(){
             <button type="button" class="qmode" id="estmode" data-act="estmode" aria-label="${S.estModo === 'txt' ? 'Cambiar a teclado de números' : 'Cambiar a teclado de letras'}">${S.estModo === 'txt' ? '123' : 'ABC'}</button></div></div>
           <label class="field"><span>Descripción</span><input class="inp" id="e-categoria" data-e="categoria" value="${esc(a.categoria)}" list="dlcat" placeholder="${esc(a.nombre || 'Igual al tipo')}"></label></div>
         <datalist id="dlcat">${[...new Set(S.arts.map(x => x.categoria).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('')}</datalist>
-        <div class="field"><span>Tipo de prenda (sale en el catálogo)</span>${pickField('ed', a.nombre, 'e-nombre')}${histTipos(a)}</div>
+        <div class="field"><span>Tipo de artículo (sale en el catálogo)</span>${pickField('ed', a.nombre, 'e-nombre')}${histTipos(a)}</div>
         <div class="row2"><label class="field"><span>Proveedor</span><select class="inp" id="e-prov" data-e="proveedorId"><option value="">Elegir…</option>${S.provs.map(x => `<option value="${x.id}" ${a.proveedorId === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}<option value="__new">+ Crear proveedor…</option></select></label>
           <div class="field"><span>Factura</span><div class="search estbox">
             <input class="inp" id="e-factura" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" spellcheck="false" data-e="factura" value="${esc(a.factura || '')}" placeholder="0001" ${S.facModo === 'txt' ? 'hidden' : ''}>
@@ -2249,7 +2251,7 @@ function vSheet(){
       if (mas.length) top += `<div class="letter">Más usados</div>${mas.map(x => btn(x).replace('</button>', `<span class="small muted">${cuenta[x]}</span></button>`)).join('')}`;
       if (top) top += '<div class="letter" style="color:var(--muted)">Todos · A–Z</div>';
     }
-    return `<div class="sheet" role="dialog" aria-label="Tipo de prenda"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="cropclose" aria-label="Volver">${I.back}</button><h2>Tipo de prenda</h2></div></div>
+    return `<div class="sheet" role="dialog" aria-label="Tipo de artículo"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="cropclose" aria-label="Volver">${I.back}</button><h2>Tipo de artículo</h2></div></div>
       <div class="sh-body"><div class="sh-inner" style="gap:8px">
         <div class="search">${I.search}<input class="inp" id="pk-q" type="search" placeholder="Buscar o escribir uno nuevo" value="${esc(s.q)}" data-bind="pickq" autocomplete="off"></div>
         <div class="picklist">
@@ -2344,7 +2346,7 @@ function vSheet(){
     return `<div class="sheet" role="dialog" aria-label="Alertas"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>Alertas</h2></div></div>
       <div class="sh-body"><div class="sh-inner">
         <div class="panel"><div class="section-h"><h2>Foto vs. descripción</h2><span class="small muted">${S.revisando ? 'Revisando ' + esc(S.revisando) + '…' : al.pend.length ? al.pend.length + ' sin revisar' : 'Todo revisado'}</span></div>
-          <div class="small muted">La IA mira la foto principal de cada artículo y avisa si el tipo de prenda no coincide con lo escrito. Se revisa sola al importar.</div>
+          <div class="small muted">La IA mira la foto principal de cada artículo y avisa si el tipo de artículo no coincide con lo escrito. Se revisa sola al importar.</div>
           ${S.sampleImg ? (al.pend.length && !S.revisando ? `<button class="btn primary" data-act="revisar">Revisar ${al.pend.length} ${al.pend.length === 1 ? 'foto' : 'fotos'} ahora</button>` : '') : '<div class="note err small">La revisión con IA no está disponible en esta vista.</div>'}
         </div>
         ${al.dup.length ? `<span class="label">Fotos repetidas en el mismo artículo</span>${al.dup.map(x => { const fa = x.a.fotos[x.i], fb = x.a.fotos[x.j];
@@ -2766,6 +2768,59 @@ function vMultCfg(k, titulo){
     <div class="addrow"><input class="inp mono" id="madd-${k}" inputmode="decimal" placeholder="Nuevo múltiplo (ej. 3.5)"><button class="btn primary" data-madd="${k}">Agregar</button></div>
     <div class="small muted">★ = se aplica solo al escribir el costo cuando el proveedor no tiene su propio factor.</div></div>`;
 }
+/* ---------- Catálogo de tipos de artículo ----------
+   Lista de tipos (los del catálogo + los que usan los artículos), con cuántos artículos
+   tiene cada uno; se pueden renombrar, combinar duplicados y quitar los que no se usan. */
+const normTipo = t => sinAcento(t).replace(/[^a-z0-9]+/g, '').replace(/(es|s)$/, '');
+function datosTipos(){
+  const cnt = new Map(); S.arts.filter(a => !a.ejemplo).forEach(a => { const t = String(a.nombre || '').trim(); if (t) cnt.set(t, (cnt.get(t) || 0) + 1); });
+  const todos = uniq([...tipos(), ...cnt.keys()]).sort((a, b) => a.localeCompare(b, 'es'));
+  const grupos = new Map(); todos.forEach(t => { const k = normTipo(t); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(t); });
+  const dup = [...grupos.values()].filter(g => g.length > 1);
+  return { cnt, todos, dup, enCat:new Set(tipos()) };
+}
+function vCatTipos(){
+  const { cnt, todos, dup, enCat } = datosTipos(); const ab = S.catTiposOpen;
+  const usados = todos.filter(t => cnt.get(t)), libres = todos.filter(t => !cnt.get(t));
+  const fila = t => `<div class="ctp-row"><span class="ctp-n">${esc(t)}${enCat.has(t) ? '' : ' <span class="ctag cam">no está en el catálogo</span>'}</span><span class="small muted">${cnt.get(t) || 0} art.</span>
+    <span class="ctp-acc">${enCat.has(t) ? '' : `<button class="linkbtn" data-tpadd="${esc(t)}">Agregar</button>`}<button class="linkbtn" data-tpren="${esc(t)}">Renombrar</button><button class="linkbtn" data-tpmerge="${esc(t)}">Combinar</button>${!cnt.get(t) && enCat.has(t) ? `<button class="linkbtn" style="color:var(--danger)" data-tprm="${esc(t)}">Quitar</button>` : ''}</span></div>`;
+  return `<div class="section"><span class="label">Catálogo de tipos de artículo</span>
+    <div class="small muted">${usados.length} tipos en uso · ${libres.length} sin artículos. Renombra o combina los repetidos (por ejemplo "Blusa" y "Blusas"): los artículos se actualizan solos.</div>
+    ${dup.length ? `<div class="note err small"><b>Posibles duplicados</b>${dup.map(g => `<div class="ctp-dup"><span>${g.map(t => `${esc(t)} (${cnt.get(t) || 0})`).join(' · ')}</span><button class="btn" style="padding:4px 10px;font-size:13px" data-tpdup="${esc(g.join('|'))}">Combinar</button></div>`).join('')}</div>` : ''}
+    <div class="ctp-list">${usados.map(fila).join('') || '<div class="small muted">Ningún artículo tiene tipo todavía.</div>'}</div>
+    <details class="resdet" ${ab ? 'open' : ''} data-tplib="1"><summary>Tipos del catálogo sin artículos · ${libres.length}</summary><div class="ctp-list">${libres.map(fila).join('')}</div></details>
+    <button class="btn" data-tpnuevo="1">+ Nuevo tipo</button></div>`;
+}
+// Pide un texto en una ventanita (renombrar / nuevo)
+function dlgTexto(titulo, valor, ok){ return new Promise(res => { const ov = document.createElement('div'); ov.className = 'xlsask';
+  ov.innerHTML = `<div class="xlsbox"><b>${esc(titulo)}</b><input class="inp" value="${esc(valor || '')}" autocapitalize="words"><button class="btn primary block" data-ok="1">${esc(ok || 'Guardar')}</button><button class="btn block ghost" data-no="1">Cancelar</button></div>`;
+  const inp = ov.querySelector('input'); const fin = v => { ov.remove(); res(v); };
+  ov.addEventListener('click', e => { e.stopPropagation(); if (e.target.closest('[data-no]') || e.target === ov) fin(null); else if (e.target.closest('[data-ok]')) fin(inp.value.trim() || null); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); fin(inp.value.trim() || null); } });
+  document.body.appendChild(ov); setTimeout(() => { inp.focus(); inp.select(); }, 30); }); }
+// Elegir el tipo destino al combinar
+function dlgTipo(titulo, excluir){ return new Promise(res => { const { todos, cnt } = datosTipos(); const ops = todos.filter(t => !excluir.includes(t));
+  const ov = document.createElement('div'); ov.className = 'xlsask';
+  ov.innerHTML = `<div class="xlsbox" style="max-height:80vh"><b>${esc(titulo)}</b><input class="inp" placeholder="Buscar tipo"><div class="ctp-pick">${ops.map(t => `<button class="btn block" data-v="${esc(t)}">${esc(t)} <span class="small muted">${cnt.get(t) || 0}</span></button>`).join('')}</div><button class="btn block ghost" data-no="1">Cancelar</button></div>`;
+  const fin = v => { ov.remove(); res(v); };
+  ov.addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('[data-v]'); if (b) fin(b.dataset.v); else if (e.target.closest('[data-no]') || e.target === ov) fin(null); });
+  ov.querySelector('input').addEventListener('input', e => { const q = sinAcento(e.target.value); ov.querySelectorAll('[data-v]').forEach(b => { b.hidden = q && !sinAcento(b.dataset.v).includes(q); }); });
+  document.body.appendChild(ov); }); }
+// Cambia el tipo de todos los artículos de "desde" a "hasta" y actualiza el catálogo
+async function cambiarTipo(desde, hasta){
+  desde = desde.filter(t => t !== hasta); if (!desde.length) return 0;
+  const afect = S.arts.filter(a => desde.includes(String(a.nombre || '').trim())); let n = 0;
+  if (afect.length) progStart('Actualizando artículos', afect.length, false);
+  for (const a of afect){ progStep(`${++n} de ${afect.length}`, a.estilo || '');
+    const cat = String(a.categoria || '').trim(); const nuevo = { ...a, nombre:hasta, ...(desde.includes(cat) || !cat ? { categoria:hasta } : {}) };
+    try { await save('articulos', a.id, nuevo); if (S.mode !== 'db') Object.assign(a, nuevo); } catch {} progDone(); }
+  if (afect.length) progEnd();
+  S.cfg.tipos = uniq([...tipos().filter(t => !desde.includes(t)), hasta]);
+  S.cfg.tiposRecientes = uniq((S.cfg.tiposRecientes || []).map(t => desde.includes(t) ? hasta : t));
+  await saveCfg(); if (S.fLinea && desde.includes(S.fLinea)) S.fLinea = hasta;
+  if (S.sheet && S.sheet.a && desde.includes(String(S.sheet.a.nombre || '').trim())) S.sheet.a.nombre = hasta;
+  render(); return afect.length;
+}
 function vCfgArt(){
   const c = S.cfg; const td = c.tallasDef || [], cd = c.coloresDef || [];
   return `<div class="edprecio">
@@ -2786,6 +2841,7 @@ function vCfgArt(){
       <label class="setrow"><span class="txt"><b>Sumar el IVA al costo</b><span class="small muted">Apágalo si recuperas el IVA de importación como crédito tributario.</span></span><span class="switch"><input type="checkbox" data-ivacosto="1" ${t.ivaCosto ? 'checked' : ''} aria-label="Sumar IVA al costo"><span></span></span></label>
       <div class="small muted">CIF = costo + flete + seguro. Ad valorem y FODINFA se calculan sobre el CIF; el específico, por kilo; el IVA, sobre CIF + aranceles + FODINFA. Las tasas de arancel dependen de la subpartida de cada prenda: verifícalas con tu agente de aduana.</div>
     </div>`; })()}
+    ${vCatTipos()}
     <div class="section"><span class="label">Valores por defecto al crear un artículo</span>
       <div class="row2"><label class="field"><span>Tipo de cambio</span><input class="inp mono" id="cfg-tc" data-cfgart="tcDef" value="${esc(c.tcDef ?? S.tc ?? '')}" inputmode="decimal" placeholder="6.70"></label>
         <label class="field"><span>Origen</span><input class="inp" id="cfg-or" data-cfgart="origenDef" value="${esc(c.origenDef || '')}" placeholder="China" autocapitalize="words"></label></div>
@@ -4300,6 +4356,15 @@ document.addEventListener('click', async e => {
   if (ed){ S.reveal.delete('ed'); openEdit(S.arts.find(a => a.id === ed.dataset.edit)); return; }
   const dv = e.target.closest('[data-docver]'); if (dv && !e.target.closest('button')){ await abrirDoc(dv.dataset.docver); return; }
   const dva = e.target.closest('img[data-docart]'); if (dva && S.sheet && S.sheet.a){ const { docs } = docsArt(S.sheet.a); S.docView = { ids:docs.map(x => x.id), i:Math.max(0, docs.findIndex(x => x.id === dva.dataset.docart)), titulo:[S.sheet.a.estilo, S.sheet.a.nombre].filter(Boolean).join(' · ') }; render(); requestAnimationFrame(() => { const el = document.getElementById('dv-' + dva.dataset.docart); if (el) el.scrollIntoView({ block:'start' }); }); return; }
+  { const tp = e.target.closest('[data-tpren],[data-tpmerge],[data-tpdup],[data-tprm],[data-tpadd],[data-tpnuevo]'); if (tp){ const d2 = tp.dataset;
+      if (d2.tpren){ const v = await dlgTexto('Renombrar "' + d2.tpren + '"', d2.tpren); if (v && v !== d2.tpren){ const n = await cambiarTipo([d2.tpren], cap(v) === v.toLowerCase() ? cap(v) : v); toast(`Tipo renombrado a "${v}"${n ? ' · ' + n + ' artículos actualizados' : ''}`); } }
+      else if (d2.tpmerge){ const v = await dlgTipo(`Combinar "${d2.tpmerge}" con…`, [d2.tpmerge]); if (v){ const n = await cambiarTipo([d2.tpmerge], v); toast(`"${d2.tpmerge}" se combinó en "${v}"${n ? ' · ' + n + ' artículos' : ''}`); } }
+      else if (d2.tpdup){ const { cnt, enCat } = datosTipos(); const pts = t => (enCat.has(t) ? 1000 : 0) + (/^[A-ZÁÉÍÓÚÑ]/.test(t) ? 100 : 0) + (cnt.get(t) || 0) - (/(es|s)$/i.test(t) ? 1 : 0);
+        const g = d2.tpdup.split('|').sort((x, y) => pts(y) - pts(x)); const v = await elegirOpcion('Combinar duplicados', 'Elige el nombre que se queda; los demás se cambian a ese.', g.map((t, i) => ({ v:t, t:`${t} · ${cnt.get(t) || 0} artículos`, pri:i === 0 }))); if (v){ const n = await cambiarTipo(g, v); toast(`Combinados en "${v}"${n ? ' · ' + n + ' artículos actualizados' : ''}`); } }
+      else if (d2.tprm){ S.cfg.tipos = tipos().filter(t => t !== d2.tprm); await saveCfg(); render(); toast(`"${d2.tprm}" quitado del catálogo`); }
+      else if (d2.tpadd){ S.cfg.tipos = uniq([...tipos(), d2.tpadd]); await saveCfg(); render(); toast(`"${d2.tpadd}" agregado al catálogo`); }
+      else if (d2.tpnuevo){ const v = await dlgTexto('Nuevo tipo de artículo', '', 'Agregar'); if (v){ S.cfg.tipos = uniq([...tipos(), v]); await saveCfg(); render(); toast(`"${v}" agregado al catálogo`); } }
+      return; } }
   { const go = e.target.closest('[data-qgo]'); if (go){ const sb = go.previousElementSibling; const inp = sb && [...sb.querySelectorAll('input')].find(x => !x.hidden);
       if (inp){ const v = inp.value.trim(); if (v && inp.id !== 'cbus'){ clearTimeout(qHistT); guardarBusqueda(v); } inp.blur(); } return; } }
   { const cf = e.target.closest('[data-cfil]'); if (cf && S.sheet){ S.sheet.fil = cf.dataset.cfil; render(); return; } }
@@ -4635,7 +4700,7 @@ document.addEventListener('change', async e => {
 });
 document.addEventListener('scroll', e => { const b = e.target; if (!b || b.id !== 'dvbody' || !S.docView) return; const its = b.querySelectorAll('.dv-it'); let i = 0; const top = b.getBoundingClientRect().top + 60;
   its.forEach((el, k) => { if (el.getBoundingClientRect().top <= top) i = k; }); S.docView.i = i; const c = document.getElementById('dvcnt'); if (c) c.textContent = (i + 1) + ' / ' + its.length; }, true);
-document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.provbar) S.provbarOpen = t.open; }, true);
+document.addEventListener('toggle', e => { const t = e.target; if (t && t.dataset && t.dataset.provbar) S.provbarOpen = t.open; if (t && t.dataset && t.dataset.tplib) S.catTiposOpen = t.open; }, true);
 document.addEventListener('input', e => {
   const t = e.target; const d = t.dataset;
   if (d.bind === 'q'){ clearTimeout(qHistT); const v0 = t.value; qHistT = setTimeout(() => { if (S.q === v0 && artsFiltrados().length) guardarBusqueda(v0); }, 2500); S.q = t.value; const xb = document.getElementById('qclear'); if (xb) xb.hidden = !t.value; const box = document.getElementById('artsres'); if (box && !S.selMode){ box.innerHTML = vArtsRes(artsFiltrados()); } else render(); return; }
@@ -4920,7 +4985,7 @@ function buildInvCands(){
   S.invSum = S.invShots.some(x => x.status === 'ok') ? { estilos:inv.length, piezas:inv.reduce((a, g) => a + g.cantidad, 0), suma:r2(inv.reduce((a, g) => a + g.total, 0)), totalFactura, dup, revisar } : null;
 }
 
-const pickField = (target, val, id) => `<button type="button" class="inp pickf" id="${id}" data-pick="${target}"><span class="${val ? '' : 'phd'}">${esc(val || 'Tipo de prenda')}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>`;
+const pickField = (target, val, id) => `<button type="button" class="inp pickf" id="${id}" data-pick="${target}"><span class="${val ? '' : 'phd'}">${esc(val || 'Tipo de artículo')}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>`;
 function multCand(c, k){
   if (S.cfg.verMult === false) return '';
   const p = prov(S.importProv); const f = factorDe(p, k === 'pMay' ? 'mayoreo' : 'menudeo');
