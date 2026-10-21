@@ -6,7 +6,7 @@ out=ROOT
 os.makedirs(out, exist_ok=True)
 src=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app.html')).read()
 m=re.match(r'\s*<title>(.*?)</title>', src); title=m.group(1); body=src[m.end():]
-cfg={"url":"https://jshqbgtradcayllkwcyb.supabase.co","key":"sb_publishable_AJqGsKBNnVf6VQz_QzWuUA_CHTsW3X3","email":"negocio@packing-y-conteo.app","lib":"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"}
+cfg={"url":"https://jshqbgtradcayllkwcyb.supabase.co","key":"sb_publishable_AJqGsKBNnVf6VQz_QzWuUA_CHTsW3X3","email":"negocio@packing-y-conteo.app","emailEmp":"empleado@packing-y-conteo.app","lib":"https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"}
 shim=open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'shim.js')).read()
 html=f'''<!doctype html>
 <html lang="es"><head><meta charset="utf-8">

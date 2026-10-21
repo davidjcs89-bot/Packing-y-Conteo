@@ -182,6 +182,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .ctp-list{display:flex;flex-direction:column}.ctp-row{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:8px 2px;border-bottom:1px solid var(--line)}.ctp-n{flex:1;min-width:120px;font-weight:600}.ctp-acc{display:flex;gap:12px;flex-wrap:wrap}
 .ctp-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.ctp-pick{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:50vh}
 .sh-est[data-copyest]{cursor:pointer;-webkit-user-select:all;user-select:all}
+.rol-emp .solo-admin{display:none!important}
 .cbusbar{display:flex;flex-direction:column;gap:8px}.cord{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .cqstick{position:sticky;top:0;z-index:20;background:var(--bg);margin:-16px -16px 0;padding:10px 16px 8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 10px -10px rgba(0,0,0,.35)}
 .sheet .sh-inner{max-width:480px;margin:0 auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
@@ -636,7 +637,9 @@ const S = {
 };
 const prov = id => S.provs.find(p => p.id === id);
 const r2 = x => Math.round(x * 100) / 100;
-const verMen = () => !!S.cfg.verMenudeo, verMay = () => !!S.cfg.verMayoreo, costoModo = () => S.cfg.costoModo || (S.cfg.verCosto ? 'clave' : 'oculto'), verCosto = () => costoModo() !== 'oculto', verUsd = () => S.cfg.verUsd !== false;
+// Rol en el sitio web: 'admin' (PIN del negocio) o 'empleado' (sin costos, compras ni proveedores)
+const EMP = () => window.PYC_ROL === 'empleado';
+const verMen = () => !!S.cfg.verMenudeo, verMay = () => !!S.cfg.verMayoreo, costoModo = () => EMP() ? 'oculto' : (S.cfg.costoModo || (S.cfg.verCosto ? 'clave' : 'oculto')), verCosto = () => costoModo() !== 'oculto', verUsd = () => S.cfg.verUsd !== false;
 const TIPOS_BASE = ['Abrigo','Blazer','Blusa','Body','Bolso','Buzo','Camisa','Camiseta','Cárdigan','Chaleco','Chaqueta','Conjunto','Corset','Crop top','Enterizo','Falda','Gabardina','Jean','Jogger','Leggings','Overol','Pantalón','Pijama','Saco','Short','Suéter','Top','Vestido'];
 const sinAcento = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 const tipos = () => [...new Set([...(S.cfg.tipos || TIPOS_BASE)])].sort((a, b) => a.localeCompare(b, 'es'));
@@ -741,6 +744,7 @@ const factorDe = (p, tipo) => (p && +(tipo === 'mayoreo' ? p.fMay : p.fMen)) || 
 function precio(a, tipo){
   const man = tipo === 'mayoreo' ? a.pMay : a.pMen;
   if (man != null && man !== '') return Number(man);
+  if (EMP()){ const v = (a.pv || {})[tipo === 'mayoreo' ? 'may' : 'men']; return v != null ? Number(v) : null; } // el empleado recibe el precio ya calculado
   const p = prov(a.proveedorId); const f = factorDe(p, tipo);
   if (!f || cb(a) == null) return null;
   return Math.ceil(r2(cb(a) * f));
@@ -793,14 +797,14 @@ async function boot(){
   let got = 0;
   const done = () => { if (++got >= 2){ S.ready = true; setTimeout(migrarFotosIncrustadas, 2500); } render(); };
   let p1 = false, p2 = false;
-  db.collection('proveedores').onSnapshot(s => { usoSnap(s); S.provs = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => a.nombre.localeCompare(b.nombre)); if (!p1){ p1 = true; done(); } else render(); },
+  db.collection('proveedores').onSnapshot(s => { usoSnap(s); S.provs = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => a.nombre.localeCompare(b.nombre)); programarSyncPv(); if (!p1){ p1 = true; done(); } else render(); },
     e => { toast('No se pudo leer proveedores: ' + e.message); if (!p1){ p1 = true; done(); } });
   db.collection('movimientos').orderBy('at', 'desc').limit(500).onSnapshot(s2 => { usoSnap(s2); S.movs = s2.docs.map(d => ({ id:d.id, ...d.data() })); if (S.tab === 'bodega' || (S.sheet && S.sheet.kind === 'edit')) render(); }, () => {});
   db.collection('documentos').onSnapshot(s => { usoSnap(s); S.docs = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => (b.at || 0) - (a.at || 0)); if (S.sheet && S.sheet.kind === 'compra') render(); }, () => {});
   db.collection('compras').onSnapshot(s => { usoSnap(s); S.compras = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')) || (b.creado || 0) - (a.creado || 0)); programarSyncEst(); if (S.tab === 'bodega' || (S.sheet && S.sheet.kind === 'edit')) render(); }, () => {});
   db.collection('viajes').onSnapshot(s => { usoSnap(s); S.viajes = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a, b) => (b.creado || 0) - (a.creado || 0)); render(); }, () => {});
-  db.collection('config').onSnapshot(s => { usoSnap(s); const d = s.docs.find(x => x.id === 'general'); if (d){ Object.assign(S.cfg, d.data()); lsSet('cat.cfgPrecios', S.cfg); render(); } }, () => {});
-  db.collection('articulos').onSnapshot(s => { usoSnap(s); S.arts = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => (b.creado||0) - (a.creado||0)); programarDup(); programarSyncEst(); if (!p2){ p2 = true; done(); } else render(); },
+  db.collection('config').onSnapshot(s => { usoSnap(s); const d = s.docs.find(x => x.id === 'general'); if (d){ Object.assign(S.cfg, d.data()); lsSet('cat.cfgPrecios', S.cfg); programarSyncPv(); render(); } }, () => {});
+  db.collection('articulos').onSnapshot(s => { usoSnap(s); S.arts = s.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b) => (b.creado||0) - (a.creado||0)); programarDup(); programarSyncEst(); programarSyncPv(); if (!p2){ p2 = true; done(); } else render(); },
     e => { toast('No se pudo leer artículos: ' + e.message); if (!p2){ p2 = true; done(); } });
 }
 
@@ -1175,6 +1179,8 @@ async function generar(){
 /* ---------- vistas ---------- */
 const TABS = [['arts','Artículos','list'],['bodega','Bodega','box'],['import','Importar','pdf'],['cat','Catálogo','book'],['provs','Proveedores','ship']];
 function render(){
+  if (EMP()){ document.documentElement.classList.add('rol-emp'); if (S.tab === 'import' || S.tab === 'provs') S.tab = 'arts'; if (S.bSub === 'compras') S.bSub = 'exist';
+    if (S.sheet && S.sheet.kind === 'edit' && (S.sheet.tab === 'compra' || S.sheet.tab === 'config')) S.sheet.tab = 'basico'; }
   const a = document.activeElement; const fid = a && a.id; const sel = a && a.selectionStart;
   const title = { arts:'Artículos', bodega:'Bodega', import:'Importar factura', cat:'Crear catálogo', provs:'Proveedores' }[S.tab];
   let body;
@@ -1191,7 +1197,7 @@ function render(){
       ${(() => { const n = S.ready ? alertas().total : 0; return `<button class="iconbtn bellbtn ${S.revisando ? 'busy' : ''}" data-act="notif" aria-label="Alertas${n ? ': ' + n : ''}">${I.bell}${n ? `<span class="badge">${n > 99 ? '99+' : n}</span>` : ''}</button>`; })()}
       <button class="iconbtn" data-act="config" aria-label="Configuración" style="margin-right:-8px">${I.gear}</button></div></header>
     <main class="content">${body}</main>
-    ${S.ready && S.tab === 'arts' && !S.selMode ? `<button class="fab" data-act="${S.fProv ? 'addmenu' : 'new'}">${I.plus}${S.fProv && prov(S.fProv) ? esc(prov(S.fProv).nombre) : 'Artículo'}</button>` : ''}
+    ${S.ready && S.tab === 'arts' && !S.selMode && !EMP() ? `<button class="fab" data-act="${S.fProv ? 'addmenu' : 'new'}">${I.plus}${S.fProv && prov(S.fProv) ? esc(prov(S.fProv).nombre) : 'Artículo'}</button>` : ''}
     ${S.ready && S.tab === 'arts' && S.selMode ? `<div class="selbar"><div class="in">
       ${S.selConfirm ? `<span class="small" style="flex:1"><b>¿Borrar ${S.selIds.size} ${S.selIds.size === 1 ? 'artículo' : 'artículos'}</b> con sus fotos? No se puede deshacer.</span>
         <button class="btn" data-act="selno">No</button><button class="btn danger" data-act="selyes">Borrar</button>`
@@ -1199,7 +1205,7 @@ function render(){
         <button class="linkbtn" data-act="selall">${artsFiltrados().length && artsFiltrados().every(a => S.selIds.has(a.id)) ? 'Ninguno' : 'Todos'}</button>
         <button class="btn danger" data-act="seldel" ${S.selIds.size ? '' : 'disabled'}>${I.trash}Borrar</button>`}
     </div></div>` : ''}
-    <nav class="bottombar" aria-label="Secciones"><div class="in">${TABS.map(([k,l,ic]) => `<button class="tabbtn" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${I[ic]}${l}</button>`).join('')}</div></nav>
+    <nav class="bottombar" aria-label="Secciones"><div class="in">${TABS.map(([k,l,ic]) => `<button class="tabbtn ${k === 'import' || k === 'provs' ? 'solo-admin' : ''}" data-tab="${k}" ${S.tab === k ? 'aria-current="page"' : ''}>${I[ic]}${l}</button>`).join('')}</div></nav>
     ${S.sheet ? vSheet() : ''}
     ${S.prog ? `<div class="prog" role="alertdialog" aria-label="${esc(S.prog.titulo)}"><div class="prog-card">
       <span class="label">${esc(S.prog.titulo)}</span>
@@ -1822,7 +1828,7 @@ function vBodega(){
       ${camPzs ? (() => { let eq = 0, emb = 0; const ce = []; camL.forEach(c => (c.lineas || []).forEach(l => { if (eqPend(c)) eq += sumK(c, l, qEq); if (embPend(c)){ const m = sumK(c, l, qEmb); if (m){ emb += m; ce.push(c); } } })); return `<div><span class="small muted">En camino</span><b style="color:var(--gold)">${eq + emb}</b><span class="small muted">${eq ? '🧳 ' + eq : ''}${eq && emb ? ' · ' : ''}${emb ? icoVias(ce) + ' ' + emb : ''}</span></div>`; })() : ''}
     </div></div>
     ${vAvisoDuplicados()}
-    <div class="seg three" role="tablist" aria-label="Bodega"><button role="tab" data-bsub="exist" aria-pressed="${S.bSub !== 'compras' && S.bSub !== 'envios'}">Existencias</button><button role="tab" data-bsub="compras" aria-pressed="${S.bSub === 'compras'}">Compras${nPendCompras ? ` <span class="badge-in">${nPendCompras}</span>` : ''}</button><button role="tab" data-bsub="envios" aria-pressed="${S.bSub === 'envios'}">Envíos${(() => { const n = gruposEnvio().length; return n ? ` <span class="badge-in">${n}</span>` : ''; })()}</button></div>
+    <div class="seg three" role="tablist" aria-label="Bodega"><button role="tab" data-bsub="exist" aria-pressed="${S.bSub !== 'compras' && S.bSub !== 'envios'}">Existencias</button><button role="tab" class="solo-admin" data-bsub="compras" aria-pressed="${S.bSub === 'compras'}">Compras${nPendCompras ? ` <span class="badge-in">${nPendCompras}</span>` : ''}</button><button role="tab" data-bsub="envios" aria-pressed="${S.bSub === 'envios'}">Envíos${(() => { const n = gruposEnvio().length; return n ? ` <span class="badge-in">${n}</span>` : ''; })()}</button></div>
     ${S.bSub === 'compras' ? vComprasBodega() : S.bSub === 'envios' ? vEnviosTab() : `
     <div class="search conscan">${I.search}<input class="inp qinp" id="bq" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Buscar estilo" value="${esc(S.bq)}" data-bind="bq" ${bqModo() === 'num' ? '' : 'hidden'}><input class="inp qinp" id="bqa" type="search" inputmode="text" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="Estilo, nombre, color…" value="${esc(S.bq)}" data-bind="bq" ${bqModo() === 'num' ? 'hidden' : ''}><button type="button" class="qscan" data-scan="bq" aria-label="Escanear código de barras, QR o leer el código de una etiqueta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 8v8M10 8v8M13 8v8M17 8v8"/></svg></button><button type="button" class="qmode" id="bqmode" data-act="bqmode" aria-label="${bqModo() === 'num' ? 'Cambiar a teclado de letras' : 'Cambiar a teclado de números'}">${bqModo() === 'num' ? 'ABC' : '123'}</button><button type="button" class="qclear" id="bqclear" data-act="bqclear" aria-label="Borrar búsqueda" ${S.bq ? '' : 'hidden'}>×</button></div><button type="button" class="qgo" data-qgo="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Buscar</button>
     <div id="bqhist">${vHist(true)}</div>
@@ -1970,7 +1976,7 @@ function cardArt(a, n, tot){
       : `<button class="thumb add" data-quickfoto="${a.id}" aria-label="Agregar foto a ${esc(a.estilo)}"><span style="font-size:20px;line-height:1">+</span>Foto</button>`}
     <div class="body" data-edit="${a.id}" role="button" tabindex="0">
       <div class="top"><span class="code">${n ? `<span class="ordn mono" title="Resultado ${n} de ${tot}">${n}</span>` : ''}${esc(a.estilo || 'Sin código')}${a.ejemplo ? ' <span class="tag">Ejemplo</span>' : ''}</span>${cst ? `<span class="cst mono">${cst}</span>` : ''}</div>
-      <div class="name">${esc(a.nombre || 'Sin nombre')}<span class="muted" style="font-weight:400"> · ${esc(p ? p.nombre : 'Sin proveedor')}</span>${tieneStock(a) ? ` <span class="stkpill ${totalStock(a) || a.soloCatalogo ? '' : 'cero'}">${totalStock(a) ? totalStock(a) + ' en bodega' : a.soloCatalogo ? 'Bajo pedido' : 'Agotado'}</span>` : ''}${pillsCamino(a.id)}</div>
+      <div class="name">${esc(a.nombre || 'Sin nombre')}${EMP() ? '' : `<span class="muted" style="font-weight:400"> · ${esc(p ? p.nombre : 'Sin proveedor')}</span>`}${tieneStock(a) ? ` <span class="stkpill ${totalStock(a) || a.soloCatalogo ? '' : 'cero'}">${totalStock(a) ? totalStock(a) + ' en bodega' : a.soloCatalogo ? 'Bajo pedido' : 'Agotado'}</span>` : ''}${pillsCamino(a.id)}</div>
       <div class="cols">${cols.length ? `<span class="dots">${cols.slice(0, 7).map(c => { const h = colHex(c); return `<i title="${esc(c)}" style="${h ? 'background:' + h : ''}" class="${h ? '' : 'unk'}"></i>`; }).join('')}${cols.length > 7 ? `<b>+${cols.length - 7}</b>` : ''}</span>` : '<span class="muted">Sin colores</span>'}<span class="tl">${esc((a.tallas || []).join(', '))}</span></div>
       <div class="prices">${pm == null && py == null && !S.qEdit ? `<button class="pill qp warn" data-qprice="${a.id}:${verMay() ? 'pMay' : 'pMen'}">Poner precio</button>` : `${verMen() ? pill('pMen', '', 'Men', a.pMen ?? pm) : ''}${verMay() ? pill('pMay', 'may', 'May', a.pMay ?? py) : ''}`}</div>
     </div></div></div>`;
@@ -2157,7 +2163,10 @@ function vSheet(){
   if (s.kind === 'edit'){
     const a = s.a; const p = prov(a.proveedorId);
     const calc = t => { const f = factorDe(p, t); return f && cb(a) != null ? Math.ceil(r2(cb(a) * f)) : null; };
-    const pb = (t, k, lbl) => { const man = a[k] != null && a[k] !== ''; const f = factorDe(p, t); return `<div class="pb ${t === 'mayoreo' ? 'may' : ''}">
+    const pb = (t, k, lbl) => { const man = a[k] != null && a[k] !== ''; const f = factorDe(p, t);
+      if (EMP()){ const v = man ? a[k] : ((a.pv || {})[t === 'mayoreo' ? 'may' : 'men'] ?? ''); // empleado: solo el precio, sin costo ni múltiplos
+        return `<div class="pb ${t === 'mayoreo' ? 'may' : ''}"><span class="label">${lbl}</span><input class="inp mono" id="e-${k}" data-e="${k}" value="${v}" inputmode="decimal" placeholder="0.00"><span class="how">${man ? 'Precio escrito a mano' : 'Precio actual'}</span></div>`; }
+      return `<div class="pb ${t === 'mayoreo' ? 'may' : ''}">
       <span class="label">${lbl}</span>
       <input class="inp mono" id="e-${k}" data-e="${k}" value="${man ? a[k] : (calc(t) ?? '')}" inputmode="decimal" placeholder="0.00">
       ${(() => { const ratio = man && cb(a) ? Math.round(a[k] / cb(a) * 100) / 100 : null; const enLista = ratio != null && multsDe(t === 'mayoreo' ? 'ed' : 'edm').some(m => Math.ceil(r2(cb(a) * m)) === +a[k]);
@@ -2166,10 +2175,10 @@ function vSheet(){
       ${multChips(t === 'mayoreo' ? 'ed' : 'edm', '', man ? (cb(a) ? (() => { const L = multsDe(t === 'mayoreo' ? 'ed' : 'edm'); const hit = L.find(m => Math.ceil(r2(cb(a) * m)) === +a[k]); return hit ?? a[k] / cb(a); })() : null) : f, cb(a))}
       ${man && calc(t) != null ? `<button class="linkbtn" data-pman="${k}">Usar el del proveedor</button>` : ''}</div>`; };
     return `<div class="sheet" role="dialog" aria-label="Artículo"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>${s.isNew ? 'Nuevo artículo' : 'Artículo'} <span class="code sh-est" id="sh-est" data-copyest="1" title="Toca para copiar el estilo">${esc(a.estilo || '')}</span></h2></div>
-        <div class="sh-sub"><span class="sh-cant" id="sh-cant">${cantCab(s)}</span><span class="mu">×</span><span class="sh-cost" id="sh-cost">${costoCab(a)}</span><span class="mu">=</span><span class="sh-tot" id="sh-tot">${totCab(s)}</span></div>
-        <div class="edtabs" role="tablist"><button role="tab" data-edtab="basico" aria-selected="${(s.tab || 'basico') === 'basico'}">Básico</button><button role="tab" data-edtab="precio" aria-selected="${s.tab === 'precio'}">Costo y precio</button><button role="tab" data-edtab="comp" aria-selected="${s.tab === 'comp'}">Composición</button><button role="tab" data-edtab="compra" aria-selected="${s.tab === 'compra'}">Compra</button><button role="tab" data-edtab="config" aria-selected="${s.tab === 'config'}" aria-label="Configuración">${I.gear || '⚙'}</button></div></div>
+        <div class="sh-sub solo-admin"><span class="sh-cant" id="sh-cant">${cantCab(s)}</span><span class="mu">×</span><span class="sh-cost" id="sh-cost">${costoCab(a)}</span><span class="mu">=</span><span class="sh-tot" id="sh-tot">${totCab(s)}</span></div>
+        <div class="edtabs" role="tablist"><button role="tab" data-edtab="basico" aria-selected="${(s.tab || 'basico') === 'basico'}">Básico</button><button role="tab" data-edtab="precio" aria-selected="${s.tab === 'precio'}">${EMP() ? 'Precio' : 'Costo y precio'}</button><button role="tab" data-edtab="comp" aria-selected="${s.tab === 'comp'}">Composición</button><button role="tab" class="solo-admin" data-edtab="compra" aria-selected="${s.tab === 'compra'}">Compra</button><button role="tab" class="solo-admin" data-edtab="config" aria-selected="${s.tab === 'config'}" aria-label="Configuración">${I.gear || '⚙'}</button></div></div>
       <div class="sh-body"><div class="sh-inner">
-        ${s.tab === 'compra' ? vCompraArt(s.a) : s.tab === 'comp' ? vComp(s) : s.tab === 'config' ? vCfgArt() : s.tab === 'precio' ? `<div class="edprecio">
+        ${s.tab === 'compra' ? vCompraArt(s.a) : s.tab === 'comp' ? vComp(s) : s.tab === 'config' ? vCfgArt() : s.tab === 'precio' ? `<div class="edprecio"><div class="solo-admin">
         ${(() => {
           const rev = S.reveal.has('ed') || s.isNew;
           const show = (v, mon) => v == null ? '—' : verCosto() ? fmtCosto(v, mon) : '••••';
@@ -2183,10 +2192,11 @@ function vSheet(){
             <div class="small muted" id="e-conv">${a.moneda === 'RMB' && a.costoOrigen != null && a.tc ? `¥${Number(a.costoOrigen).toFixed(2)} ÷ ${a.tc} = ${(a.costoOrigen / a.tc).toFixed(2)} → <b>${verCosto() || rev ? money(rmbAUsd(a.costoOrigen, a.tc)) : '••••'}</b> (redondeado hacia arriba)` : 'Escribe el costo en yuanes y el tipo de cambio, o directamente el costo en USD.'}</div>
 `;
         })()}
-        ${vEnvio(a)}
+</div>
+        <div class="solo-admin">${vEnvio(a)}</div>
         <div class="section"><span class="label">Precio de venta</span>
         <div class="pricebox one">${pb('mayoreo','pMay','Mayoreo')}${pb('menudeo','pMen','Menudeo')}</div>
-        ${vHistCompras(a)}
+        ${EMP() ? '' : vHistCompras(a)}
         ${(() => { const pm = precio(a, 'mayoreo'), pn = precio(a, 'menudeo'); return pm != null && pn != null && pn <= pm ? `<div class="note err small">El menudeo (${money(pn)}) debe ser mayor que el mayoreo (${money(pm)}). Mayoreo es para clientes que revenden; menudeo para el consumidor final.</div>` : ''; })()}
         ${!verMen() ? '<div class="small muted">El precio de menudeo no sale en el catálogo (actívalo en Configuración si lo necesitas).</div>' : ''}</div>
         </div>` : `
@@ -2204,16 +2214,16 @@ function vSheet(){
           <label class="field"><span>Descripción</span><input class="inp" id="e-categoria" data-e="categoria" value="${esc(a.categoria)}" list="dlcat" placeholder="${esc(a.nombre || 'Igual al tipo')}"></label></div>
         <datalist id="dlcat">${[...new Set(S.arts.map(x => x.categoria).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join('')}</datalist>
         <div class="field"><span>Tipo de artículo (sale en el catálogo)</span>${pickField('ed', a.nombre, 'e-nombre')}${histTipos(a)}</div>
-        <div class="row2"><label class="field"><span>Proveedor</span><select class="inp" id="e-prov" data-e="proveedorId"><option value="">Elegir…</option>${S.provs.map(x => `<option value="${x.id}" ${a.proveedorId === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}<option value="__new">+ Crear proveedor…</option></select></label>
+        <div class="row2 solo-admin"><label class="field"><span>Proveedor</span><select class="inp" id="e-prov" data-e="proveedorId"><option value="">Elegir…</option>${S.provs.map(x => `<option value="${x.id}" ${a.proveedorId === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`).join('')}<option value="__new">+ Crear proveedor…</option></select></label>
           <div class="field"><span>Factura</span><div class="search estbox">
             <input class="inp" id="e-factura" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" spellcheck="false" data-e="factura" value="${esc(a.factura || '')}" placeholder="0001" ${S.facModo === 'txt' ? 'hidden' : ''}>
             <input class="inp" id="e-facturaa" type="text" inputmode="text" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" data-e="factura" value="${esc(a.factura || '')}" placeholder="INV-0000" ${S.facModo === 'txt' ? '' : 'hidden'}>
             <button type="button" class="qmode" id="facmode" data-act="facmode" aria-label="${S.facModo === 'txt' ? 'Cambiar a teclado de números' : 'Cambiar a teclado de letras'}">${S.facModo === 'txt' ? '123' : 'ABC'}</button></div></div></div>
-        ${histProvs(a)}
+        ${EMP() ? '' : histProvs(a)}
         <div class="section"><label class="setrow" style="padding:10px 12px"><span class="txt"><b>Solo catálogo / bajo pedido</b><span class="small muted">Se vende por catálogo sin tener existencia; no aparece como agotado.</span></span><span class="switch"><input type="checkbox" data-solocat="1" ${a.soloCatalogo ? 'checked' : ''} aria-label="Solo catálogo"><span></span></span></label>
           ${a.soloCatalogo ? `<div class="row2"><label class="field"><span>Tiempo de entrega</span><input class="inp" data-e="entregaDias" value="${esc(a.entregaDias || '')}" placeholder="15 a 20 días"></label><label class="field"><span>Pedido mínimo</span><input class="inp" data-e="pedidoMin" value="${esc(a.pedidoMin || '')}" placeholder="3 por color"></label></div>
             ${(() => { const p = prov(a.proveedorId); return p && p.contacto ? `<div class="small muted">Pedir a ${esc(p.nombre)}: <b>${esc(p.contacto)}</b></div>` : '<div class="small muted">Agrega el contacto del proveedor en la pestaña Proveedores.</div>'; })()}` : ''}</div>
-        ${(S.viajes || []).length ? `<label class="field"><span>Viaje de compra</span><select class="inp" data-e="viajeId"><option value="">Sin viaje</option>${S.viajes.map(v => `<option value="${v.id}" ${a.viajeId === v.id ? 'selected' : ''}>${esc(v.nombre || 'Viaje')}</option>`).join('')}</select></label>` : ''}
+        ${(S.viajes || []).length && !EMP() ? `<label class="field"><span>Viaje de compra</span><select class="inp" data-e="viajeId"><option value="">Sin viaje</option>${S.viajes.map(v => `<option value="${v.id}" ${a.viajeId === v.id ? 'selected' : ''}>${esc(v.nombre || 'Viaje')}</option>`).join('')}</select></label>` : ''}
         <div class="section"><span class="label">Colores</span>
           <div class="chips">${colChips(a).map(c => `<button class="chip" data-colt="${esc(c)}" aria-pressed="${a.colores.includes(c)}">${colHex(c) ? `<i class="cdot" style="background:${colHex(c)}"></i>` : ''}${esc(c)}</button>`).join('')}<button class="chip addc" data-addopen="col" aria-label="Agregar color">+</button></div>
           ${S.addOpen === 'col' ? `<div class="addrow"><input class="inp" id="e-col" placeholder="Nuevo color (ej. Café, Vino)" enterkeyhint="done"><button class="btn primary" data-addok="col">Agregar</button></div>` : ''}</div>
@@ -2232,7 +2242,7 @@ function vSheet(){
           ${(() => { const m = S.movs.filter(x => x.artId === a.id); return m.length ? `<details class="resdet"><summary>Historial · ${m.length}</summary>${vMovs(m, 50)}</details>` : ''; })()}`}
         </div>
         `}
-        ${!s.isNew ? (s.confirmDel ? `<div class="confirm">¿Eliminar ${esc(a.estilo || 'este artículo')}? No se puede deshacer.<button class="btn danger" data-act="del" style="padding:6px 12px">Eliminar</button><button class="btn" data-act="nodel" style="padding:6px 12px">Cancelar</button></div>` : `<button class="btn danger ghost" data-act="askdel">Eliminar artículo</button>`) : ''}
+        ${!s.isNew && !EMP() ? (s.confirmDel ? `<div class="confirm">¿Eliminar ${esc(a.estilo || 'este artículo')}? No se puede deshacer.<button class="btn danger" data-act="del" style="padding:6px 12px">Eliminar</button><button class="btn" data-act="nodel" style="padding:6px 12px">Cancelar</button></div>` : `<button class="btn danger ghost" data-act="askdel">Eliminar artículo</button>`) : ''}
       </div></div>
       <div class="sh-foot"><div class="in"><button class="btn" data-act="close">Cancelar</button><button class="btn primary" data-act="saveart" ${s.busy ? 'disabled' : ''}>Guardar</button></div></div></div>`;
   }
@@ -2399,12 +2409,12 @@ function vSheet(){
           <div class="small muted">Vista: ${esc(subCat(catTipo())) || 'sin subtítulo ni fecha'}</div>
         </div>
         <span class="label" style="margin-top:8px">Uso y costos</span>
-        ${vUso()}
+        ${EMP() ? '' : vUso()}
         <span class="label" style="margin-top:8px">Respaldo y mudanza</span>
         <div class="panel"><div class="small muted">Descarga un solo archivo .zip con artículos, proveedores, existencias, movimientos, viajes, compras, conteos, configuración, fotos y facturas guardadas. Sirve para la app del iPhone (<b>Ajustes → Importar respaldo</b>) y para pasar todo al sitio web propio.</div>
           <button class="btn primary block" data-act="respaldo">Exportar respaldo (.zip)</button>
           ${window.PYC_WEB ? `<button class="btn block" data-act="pycsalir">Cerrar sesión en este teléfono</button>` : ''}
-          ${S.mode === 'db' ? `<button class="btn block" data-act="resimp">Importar respaldo (.zip)</button><div class="small muted">Importar agrega o actualiza lo que viene en el respaldo; no borra lo que ya tienes aquí.</div>` : ''}</div>
+          ${S.mode === 'db' && !EMP() ? `<button class="btn block" data-act="resimp">Importar respaldo (.zip)</button><div class="small muted">Importar agrega o actualiza lo que viene en el respaldo; no borra lo que ya tienes aquí.</div>` : ''}</div>
         <span class="label" style="margin-top:8px">Sin internet</span>
         <div class="panel"><div class="small muted">Descarga una copia de solo lectura con todos tus artículos, fotos, precios, composición y existencias para revisarla sin conexión (por ejemplo en un vuelo).</div>
           <button class="btn primary block" data-act="reppdf">Descargar reporte PDF (recomendado para iPhone)</button>
@@ -2634,8 +2644,16 @@ function commitPend(){
 }
 /* Si se corrige el estilo de un artículo, las compras que lo tienen se actualizan
    (líneas, conteos y cambios guardan una copia del estilo). */
-let syncEstT = null;
-function programarSyncEst(){ clearTimeout(syncEstT); syncEstT = setTimeout(() => syncEstilos().catch(() => {}), 1500); }
+let syncEstT = null, syncPvT = null;
+// Precios de venta ya calculados (pv) dentro del artículo: el empleado no recibe costos ni factores,
+// así que ve el precio final que calcula aquí el administrador.
+function programarSyncPv(){ if (!window.PYC_WEB || window.PYC_ROL !== 'admin') return; clearTimeout(syncPvT); syncPvT = setTimeout(() => syncPv().catch(() => {}), 2500); }
+async function syncPv(){
+  if (!S.ready) return;
+  for (const a of S.arts.filter(x => !x.ejemplo)){ const may = precio(a, 'mayoreo'), men = precio(a, 'menudeo'); const pv = a.pv || {};
+    if ((pv.may ?? null) !== (may ?? null) || (pv.men ?? null) !== (men ?? null)){ try { await save('articulos', a.id, { ...a, pv:{ may:may ?? null, men:men ?? null } }); } catch {} } }
+}
+function programarSyncEst(){ if (EMP()) return; clearTimeout(syncEstT); syncEstT = setTimeout(() => syncEstilos().catch(() => {}), 1500); }
 async function syncEstilos(){
   if (!S.ready && S.mode === 'db') return;
   const est = new Map(S.arts.filter(a => a.estilo).map(a => [a.id, a.estilo])); let n = 0;
@@ -3413,8 +3431,17 @@ function vListaCompras(){
     ${lista.length ? lista.map(cardCompra).join('') : `<div class="small muted">${q ? 'Ninguna compra coincide con la búsqueda.' : l.length ? 'No hay compras en camino ni reclamos pendientes.' : 'Registra aquí lo que pagas a cada proveedor. Queda “En camino” hasta que lo cuentes en bodega.'}</div>`}
     ${!q && (l.length > base.length || S.compVer) ? `<button class="linkbtn" data-act="compver" style="align-self:flex-start">${S.compVer ? 'Ver solo pendientes' : `Ver todas (${l.length})`}</button>` : ''}`;
 }
+// Recepciones: contar maleta o embarque de cada compra (el empleado entra por aquí)
+function vRecepciones(){
+  const cs = comprasCamino().filter(c => (eqPend(c) && (c.lineas || []).some(l => sumK(c, l, qEq))) || (embPend(c) && (c.lineas || []).some(l => sumK(c, l, qEmb))));
+  if (!cs.length) return '';
+  return `<div class="section"><span class="label">Recepciones por compra</span>${cs.map(c => { const p = prov(c.proveedorId); const pe = progresoConteo(c, 'eq'), pm = progresoConteo(c, 'emb');
+    return `<div class="envio"><div class="env-h"><b>${esc((p && p.nombre) || c.provNombre || 'Compra')}</b><span class="small muted">${fechaTxt(c.fecha)}</span></div>
+      ${eqPend(c) && pe.ped ? `<div class="env-r"><span>🧳 <b>Maleta</b> · faltan ${pe.falta} de ${pe.ped}</span><button class="btn" data-reccontar="eq|${c.id}" style="padding:6px 10px">Contar</button></div>` : ''}
+      ${embPend(c) && pm.ped ? `<div class="env-r"><span>${icoVia(c)} <b>Embarque</b> · faltan ${pm.falta} de ${pm.ped}</span><button class="btn" data-reccontar="emb|${c.id}" style="padding:6px 10px">Contar</button></div>` : ''}</div>`; }).join('')}</div>`;
+}
 function vEnviosTab(){
-  const h = vEnvios(true);
+  const h = (EMP() ? '' : vEnvios(true)) + vRecepciones();
   return `<div class="section"><div class="section-h"><h2>Envíos</h2></div>
     ${h || '<div class="small muted">No hay nada en camino en maletas ni por embarque. Aquí aparece, por viaje, lo que traes en tu equipaje para contarlo y lo que va por embarque (con su lista de empaque).</div>'}</div>`;
 }
@@ -3758,6 +3785,7 @@ function sinContarSueltos(){
   return out;
 }
 function vAvisoDuplicados(){
+  if (EMP()) return '';
   const d = duplicadosCamino(), su = sinContarSueltos(); if (!d.length && !su.length) return '';
   if (!d.length){ const pzs = su.reduce((x, r) => x + r.n, 0);
     return `<div class="note small" style="background:var(--gold-soft);color:var(--ink);display:flex;flex-direction:column;gap:8px">
@@ -3987,7 +4015,7 @@ function vConteoEq(s){
   const cs = comprasCamino().filter(c => (s.compraId ? c.id === s.compraId : (c.viajeId || '') === s.vid) && eqPend(c) && (c.lineas || []).some(l => sumK(c, l, qEq)));
   const rec = s.rec; let ped = 0, ya = 0, ahora = 0, sobra = 0, faltT = 0, util = 0; const cnt = { todos:0, falt:0, irr:0, ok:0 };
   const bloques = cs.map(c => { const p = prov(c.proveedorId);
-    return `<div class="section"><span class="label">${esc(p ? p.nombre : '')}${c.factura ? ' · F' + esc(c.factura) : ''}</span>${(c.lineas || []).filter(l => sumK(c, l, qEq)).map((l, i) => { const a = S.arts.find(x => x.id === l.artId) || {};
+    return `<div class="section"><span class="label">${esc((p && p.nombre) || c.provNombre || '')}${c.factura ? ' · F' + esc(c.factura) : ''}</span>${(c.lineas || []).filter(l => sumK(c, l, qEq)).map((l, i) => { const a = S.arts.find(x => x.id === l.artId) || {};
       const keys = clavesConteo(c, 'eq', l, (s.extra || {})[c.id + '|' + l.artId]); const cols = uniq(keys.map(k => k.split('|')[0])); const tals = uniq(keys.map(k => k.split('|')[1])).sort((x, y) => ordTalla(x) - ordTalla(y)); const r = ((rec[c.id] || {})[l.artId]) || {};
       let faltaL = 0; keys.forEach(k => { const pq = qEq(c, l, k), y = yaK(c, 'eq', l.artId, k), f = faltaK(c, 'eq', l, k), rq = +r[k] || 0; ped += pq; ya += y; ahora += rq; faltaL += f; faltT += f; util += Math.min(rq, f); if (pq && rq > f) sobra += rq - f; });
       const est = sinAcento([l.estilo, a.nombre, ...keys.map(k => k.split('|')[0])].join(' '));
@@ -4378,6 +4406,10 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button, [data-sel]'); if (!t) return;
   const d = t.dataset;
   if (d.bsub){ S.bSub = d.bsub; render(); return; }
+  if (d.reccontar){ const [tipo, cid] = d.reccontar.split('|'); const c = (S.compras || []).find(x => x.id === cid); if (!c) return;
+    if (tipo === 'eq') S.sheet = { kind:'conteoEq', vid:c.viajeId || '', compraId:c.id, rec:{} };
+    else S.sheet = { kind:'compra', c:JSON.parse(JSON.stringify(c)), modo:'contar', ses:{}, soloConteo:true };
+    render(); return; }
   if (d.cord){ S.cOrd = d.cord; lsSet('cat.cord', d.cord); render(); return; }
   if (d.tab){ cambiarTab(d.tab); return; }
   if (d.alusar){ await resolverAlerta(d.alusar, 'usar'); return; }
@@ -4602,7 +4634,7 @@ document.addEventListener('click', async e => {
     case 'ccadd': { const c = S.sheet.c; const l = cajasDe(c); const n = l.length ? (parseInt(l[l.length - 1].n, 10) || l.length) + 1 : 1; c.cajasDet = [...l, { n:String(n), pesoLb:null, l:null, w:null, h:null, carton:'simple' }]; render(); break; }
     case 'cccopy': { const c = S.sheet.c; const l = cajasDe(c); const u = l[l.length - 1]; if (!u) break; const n = (parseInt(u.n, 10) || l.length) + 1; c.cajasDet = [...l, { tipo:u.tipo || 'caja', n:String(n), pesoLb:null, l:u.l, w:u.w, h:u.h, carton:u.carton || 'simple' }]; render(); break; }
     case 'ccontar': if (await guardarCompra(false)){ S.sheet.modo = 'contar'; S.sheet.ses = {}; render(); } break;
-    case 'cvolver': S.sheet.modo = null; render(); break;
+    case 'cvolver': if (S.sheet.soloConteo){ S.sheet = null; render(); break; } S.sheet.modo = null; render(); break;
     case 'cpasar': pasarABodega(); break;
     case 'csave': guardarCompra(true); break;
     case 'caskdel': S.sheet.confirmDel = true; render(); break;

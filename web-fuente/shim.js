@@ -35,10 +35,11 @@
       setTimeout(() => inp.focus(), 50);
       f.addEventListener('submit', async e => {
         e.preventDefault(); bt.disabled = true; err.textContent = '';
-        const { data, error } = await c.auth.signInWithPassword({ email: EMAIL, password: inp.value.trim() });
+        const pin = inp.value.trim(); let r = null;
+        for (const email of [EMAIL, CFG.emailEmp]) { if (!email) continue; r = await c.auth.signInWithPassword({ email, password: pin }); if (r.data && r.data.session) break; if (r.error && /network|fetch/i.test(r.error.message)) break; }
         bt.disabled = false;
-        if (error || !data.session) { err.textContent = error && /network|fetch/i.test(error.message) ? 'Sin conexión. Revisa el internet.' : 'PIN incorrecto'; inp.select(); return; }
-        ov.remove(); res(data.session);
+        if (!r || r.error || !r.data.session) { err.textContent = r && r.error && /network|fetch/i.test(r.error.message) ? 'Sin conexión. Revisa el internet.' : 'PIN incorrecto'; inp.select(); return; }
+        ov.remove(); res(r.data.session);
       });
     });
   }
@@ -46,22 +47,58 @@
   const sesion = () => sesionP || (sesionP = (async () => {
     const c = await cliente();
     const { data } = await c.auth.getSession();
-    if (data && data.session) return data.session;
-    return pantallaPin(c);
+    let ses = data && data.session ? data.session : await pantallaPin(c);
+    // Se renueva la sesión para traer el rol actualizado (admin / empleado)
+    try { const rf = await c.auth.refreshSession(); if (rf.data && rf.data.session) ses = rf.data.session; } catch {}
+    const meta = (ses.user && ses.user.app_metadata) || {};
+    window.PYC_ROL = meta.rol === 'empleado' ? 'empleado' : 'admin';
+    return ses;
   })());
   window.PYC_SALIR = async () => { const c = await cliente(); await c.auth.signOut(); location.reload(); };
 
-  /* ---------- db: colecciones como en claude.ai, guardadas en la tabla docs ---------- */
+  /* ---------- db: colecciones como en claude.ai, guardadas en la tabla docs ----------
+     Para el acceso del empleado, los datos sensibles van en colecciones aparte que Supabase
+     solo entrega al administrador:
+       articulos  -> parte visible (fotos, colores, tallas, existencia, precios de venta)
+       articulos_priv -> costos, tipo de cambio, proveedor, factura, detalle de factura
+       compras    -> la compra completa (solo administrador)
+       recepciones -> lo necesario para contar (líneas sin costo, proveedor) + el estado del conteo
+       config     -> configuración completa; config_pub -> la parte sin costos ni factores */
+  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId'];
+  const REC_KEYS = ['contEq', 'contEmb', 'conteos', 'estadoEq', 'estadoEmb', 'recibido', 'recibidoEq', 'difEq', 'cambios', 'eqContadoAt', 'embContadoAt', 'estado', 'verificadaAt', 'reclamo'];
+  const CFG_PUB = ['tipos', 'tiposRecientes', 'tallasExtra', 'tallasDef', 'coloresDef', 'coloresRec', 'fotosExtra', 'fechaModo', 'fechaTexto', 'subMen', 'subMay', 'origenDef', 'verMenudeo', 'verMayoreo', 'ord_arts', 'ord_bod', 'taraCajaLb', 'taraBultoLb', 'taraBolsaLb', 'cartonSimpleLbFt2', 'cartonDobleLbFt2'];
+  const pick = (o, ks) => { const r = {}; for (const k of ks) if (o && o[k] !== undefined) r[k] = o[k]; return r; };
+  const omit = (o, ks) => { const r = { ...(o || {}) }; for (const k of ks) delete r[k]; return r; };
   function crearDb(c) {
-    const cache = new Map(), cargas = new Map(), subs = new Map(), timers = new Map();
-    const mapa = col => { if (!cache.has(col)) cache.set(col, new Map()); return cache.get(col); };
-    const snap = (col, ord, lim) => {
-      let arr = [...mapa(col).entries()].map(([id, data]) => ({ id, exists: true, data: () => data }));
+    const emp = () => window.PYC_ROL === 'empleado';
+    const raw = new Map(), cargas = new Map(), subs = new Map(), timers = new Map();
+    const mapa = col => { if (!raw.has(col)) raw.set(col, new Map()); return raw.get(col); };
+    // Colecciones físicas que forman cada colección de la app
+    const deps = name => emp()
+      ? ({ articulos: ['articulos'], compras: ['recepciones'], config: ['config_pub'], movimientos: ['movimientos'] })[name] || []
+      : ({ articulos: ['articulos', 'articulos_priv'], compras: ['compras', 'recepciones'] })[name] || [name];
+    const copiaRec = d => {
+      const pv = mapa('proveedores').get(d.proveedorId);
+      return { lineas: (d.lineas || []).map(l => ({ artId: l.artId, estilo: l.estilo, cant: l.cant || {}, eq: l.eq || {} })), proveedorId: d.proveedorId || '', provNombre: (pv && pv.nombre) || d.provNombre || '',
+        entrega: d.entrega, via: d.via || null, viajeId: d.viajeId || '', etapa: d.etapa, fecha: d.fecha, creado: d.creado };
+    };
+    const construir = name => {
+      if (emp()) {
+        if (name === 'config') { const m = new Map(); const g = mapa('config_pub').get('general'); if (g) m.set('general', g); return m; }
+        const d = deps(name); return d.length ? new Map(mapa(d[0])) : new Map();
+      }
+      if (name === 'articulos') { const m = new Map(); const pr = mapa('articulos_priv'); for (const [id, d] of mapa('articulos')) m.set(id, { ...d, ...(pr.get(id) || {}) }); return m; }
+      if (name === 'compras') { const m = new Map(); const rc = mapa('recepciones'); for (const [id, d] of mapa('compras')) m.set(id, { ...d, ...pick(rc.get(id), REC_KEYS) }); return m; }
+      return new Map(mapa(name));
+    };
+    const snap = (name, ord, lim) => {
+      let arr = [...construir(name).entries()].map(([id, data]) => ({ id, exists: true, data: () => data }));
       if (ord) arr.sort((a, b) => { const x = a.data()[ord.f], y = b.data()[ord.f]; return (x > y ? 1 : x < y ? -1 : 0) * (ord.dir === 'desc' ? -1 : 1); });
       if (lim) arr = arr.slice(0, lim);
       return { docs: arr, size: arr.length, empty: !arr.length, docChanges: () => [] };
     };
-    const emitir = col => { clearTimeout(timers.get(col)); timers.set(col, setTimeout(() => { for (const s of subs.get(col) || []) try { s.cb(snap(col, s.ord, s.lim)); } catch (e) { console.error(e); } }, 60)); };
+    const emitir = name => { clearTimeout(timers.get(name)); timers.set(name, setTimeout(() => { for (const s of subs.get(name) || []) try { s.cb(snap(name, s.ord, s.lim)); } catch (e) { console.error(e); } }, 60)); };
+    const emitirCol = col => { for (const name of subs.keys()) if (deps(name).includes(col)) emitir(name); };
     const cargarCol = col => {
       if (!cargas.has(col)) cargas.set(col, (async () => {
         const m = new Map(); let desde = 0;
@@ -71,39 +108,77 @@
           data.forEach(r => m.set(r.id, r.data));
           if (data.length < 1000) break; desde += 1000;
         }
-        const viejo = mapa(col); for (const [k, v] of viejo) if (!m.has(k)) m.set(k, v); // lo escrito mientras cargaba
-        cache.set(col, m);
+        const viejo = mapa(col); for (const [k, v] of viejo) if (!m.has(k)) m.set(k, v);
+        raw.set(col, m);
       })().catch(e => { cargas.delete(col); throw e; }));
       return cargas.get(col);
     };
-    // Cambios en vivo hechos desde otros teléfonos
+    const cargarDeps = name => Promise.all(deps(name).map(cargarCol));
     c.channel('pyc-docs').on('postgres_changes', { event: '*', schema: 'public', table: 'docs' }, p => {
-      const r = (p.new && p.new.col) ? p.new : p.old; if (!r || !r.col || !cache.has(r.col)) return;
+      const r = (p.new && p.new.col) ? p.new : p.old; if (!r || !r.col || !raw.has(r.col)) return;
       if (p.eventType === 'DELETE') mapa(r.col).delete(r.id); else mapa(r.col).set(r.id, p.new.data);
-      emitir(r.col);
+      emitirCol(r.col);
     }).subscribe();
-    const ref = (col, id) => ({
+    // Escrituras físicas
+    const up = async (col, id, data) => { mapa(col).set(id, data); emitirCol(col);
+      const { error } = await c.from('docs').upsert({ col, id, data, upd: new Date().toISOString() }); if (error) throw error; };
+    const upd = async (col, id, data) => { mapa(col).set(id, data); emitirCol(col);
+      const { data: r, error } = await c.from('docs').update({ data, upd: new Date().toISOString() }).eq('col', col).eq('id', id).select('id'); if (error) throw error;
+      if (!r || !r.length) throw new Error('Sin permiso para guardar esto'); };
+    const ins = async (col, id, data) => { mapa(col).set(id, data); emitirCol(col);
+      const { error } = await c.from('docs').insert({ col, id, data, upd: new Date().toISOString() }); if (error) throw error; };
+    const del = async (col, id) => { mapa(col).delete(id); emitirCol(col); const { error } = await c.from('docs').delete().eq('col', col).eq('id', id); if (error) throw error; };
+    // Escritura de un documento de la app según su colección y el rol
+    async function escribir(name, id, d) {
+      if (emp()) {
+        if (name === 'articulos') return upd('articulos', id, omit(d, PRIV_ART));
+        if (name === 'compras') { const prev = mapa('recepciones').get(id) || {}; return upd('recepciones', id, { ...prev, ...pick(d, REC_KEYS) }); }
+        if (name === 'movimientos') return mapa('movimientos').has(id) ? upd('movimientos', id, d) : ins('movimientos', id, omit(d, ['factura', 'proveedorId']));
+        return; // configuración y demás: el empleado no guarda en la nube
+      }
+      if (name === 'articulos') { await up('articulos', id, omit(d, PRIV_ART)); return up('articulos_priv', id, pick(d, PRIV_ART)); }
+      if (name === 'compras') { await up('compras', id, omit(d, REC_KEYS)); return up('recepciones', id, { ...copiaRec(d), ...pick(d, REC_KEYS) }); }
+      if (name === 'config' && id === 'general') { await up('config', id, d); return up('config_pub', id, pick(d, CFG_PUB)); }
+      return up(name, id, d);
+    }
+    async function borrar(name, id) {
+      if (emp()) throw new Error('Sin permiso para borrar');
+      if (name === 'articulos') { await del('articulos', id); return del('articulos_priv', id); }
+      if (name === 'compras') { await del('compras', id); return del('recepciones', id); }
+      return del(name, id);
+    }
+    // Separación de datos que ya existían (se hace una vez, solo con el PIN del negocio)
+    let separado = false;
+    async function separar() {
+      if (separado || emp()) return; separado = true;
+      try {
+        await Promise.all(['articulos', 'articulos_priv', 'compras', 'recepciones', 'config', 'config_pub', 'proveedores'].map(cargarCol));
+        const arts = [...mapa('articulos').entries()].filter(([, d]) => PRIV_ART.some(k => d[k] !== undefined));
+        for (const [id, d] of arts) await escribir('articulos', id, { ...d, ...(mapa('articulos_priv').get(id) || {}) });
+        for (const [id, d] of mapa('compras')) { const rc = mapa('recepciones').get(id); if (!rc || REC_KEYS.some(k => d[k] !== undefined)) await escribir('compras', id, { ...d, ...pick(rc, REC_KEYS) }); }
+        const g = mapa('config').get('general'); if (g && !mapa('config_pub').has('general')) await up('config_pub', 'general', pick(g, CFG_PUB));
+        if (arts.length) console.info('Separados costos de', arts.length, 'artículos');
+      } catch (e) { separado = false; console.error('No se pudo separar', e); }
+    }
+    const ref = (name, id) => ({
       id,
-      async set(data) { const d = JSON.parse(JSON.stringify(data)); mapa(col).set(id, d); emitir(col);
-        const { error } = await c.from('docs').upsert({ col, id, data: d, upd: new Date().toISOString() }); if (error) throw error; },
-      async update(patch) { const prev = mapa(col).get(id) || {}; return this.set({ ...prev, ...patch }); },
-      async delete() { mapa(col).delete(id); emitir(col);
-        const { error } = await c.from('docs').delete().eq('col', col).eq('id', id); if (error) throw error; },
-      async get() { const { data, error } = await c.from('docs').select('data').eq('col', col).eq('id', id).maybeSingle(); if (error) throw error;
-        return { id, exists: !!data, data: () => (data ? data.data : undefined) }; },
+      async set(data) { return escribir(name, id, JSON.parse(JSON.stringify(data))); },
+      async update(patch) { const prev = construir(name).get(id) || {}; return this.set({ ...prev, ...patch }); },
+      async delete() { return borrar(name, id); },
+      async get() { await cargarDeps(name); const d = construir(name).get(id); return { id, exists: !!d, data: () => d }; },
     });
-    const consulta = (col, ord, lim) => ({
-      orderBy: (f, dir) => consulta(col, { f, dir: dir || 'asc' }, lim),
-      limit: n => consulta(col, ord, n),
-      doc: id => ref(col, id),
+    const consulta = (name, ord, lim) => ({
+      orderBy: (f, dir) => consulta(name, { f, dir: dir || 'asc' }, lim),
+      limit: n => consulta(name, ord, n),
+      doc: id => ref(name, id),
       onSnapshot(cb, err) {
-        const s = { cb, ord, lim }; if (!subs.has(col)) subs.set(col, new Set()); subs.get(col).add(s);
-        cargarCol(col).then(() => cb(snap(col, ord, lim))).catch(e => err && err(e));
-        return () => subs.get(col).delete(s);
+        const s = { cb, ord, lim }; if (!subs.has(name)) subs.set(name, new Set()); subs.get(name).add(s);
+        cargarDeps(name).then(() => { cb(snap(name, ord, lim)); if (name === 'articulos') setTimeout(separar, 1500); }).catch(e => err && err(e));
+        return () => subs.get(name).delete(s);
       },
-      async get() { await cargarCol(col); return snap(col, ord, lim); },
+      async get() { await cargarDeps(name); return snap(name, ord, lim); },
     });
-    return { collection: col => consulta(col) };
+    return { collection: name => consulta(name) };
   }
 
   /* ---------- assets: fotos y facturas en el bucket "archivos" ---------- */
