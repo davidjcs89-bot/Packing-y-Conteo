@@ -987,7 +987,34 @@ async function boot(){
 }
 
 /* ---------- fotos ---------- */
-function loadImg(src){ return new Promise((ok, ko) => { const im = new Image(); im.onload = () => ok(im); im.onerror = ko; im.src = src; }); }
+function loadImg(src){ return new Promise((ok, ko) => { const im = new Image(); if (/^https?:/i.test(src) && !src.startsWith(location.origin)) im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = ko; im.src = src; }); }
+/* ---------- Fotos borrosas ----------
+   Nitidez = varianza del Laplaciano sobre la foto reducida a 512 px (valores bajos = borrosa).
+   También se marca la foto de baja resolución (lado mayor < 500 px). El resultado se guarda en
+   este navegador para no volver a analizar. */
+const BLUR_UMBRAL = 60, BLUR_MINPX = 500;
+const blurCache = () => { const o = lsGet('cat.blur', {}); return o && typeof o === 'object' ? o : {}; };
+async function nitidez(ref){
+  const im = await loadImg(fotoUrl(ref)); const w0 = im.naturalWidth, h0 = im.naturalHeight;
+  const cv = toCanvas(im, 512); const W = cv.width, H = cv.height; const px = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  const g = new Float32Array(W * H); for (let i = 0; i < W * H; i++) g[i] = .299 * px[i * 4] + .587 * px[i * 4 + 1] + .114 * px[i * 4 + 2];
+  let n = 0, sum = 0, sum2 = 0;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++){ const i = y * W + x; const l = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - W] - g[i + W]; sum += l; sum2 += l * l; n++; }
+  const m = sum / n; return { v:Math.round((sum2 / n - m * m) * 10) / 10, w:w0, h:h0 };
+}
+const fotoBorrosa = r => r && (r.v < BLUR_UMBRAL || Math.max(r.w, r.h) < BLUR_MINPX);
+const artBorroso = a => { const c = blurCache(); return (a.fotos || []).some(f => fotoBorrosa(c[f])); };
+const fotosSinRevisar = () => { const c = blurCache(); return uniq(S.arts.flatMap(a => a.fotos || [])).filter(f => !c[f]); };
+async function revisarBorrosas(){
+  const pend = fotosSinRevisar(); const c = blurCache();
+  if (pend.length){
+    progStart('Revisando nitidez de fotos', pend.length, true); let k = 0;
+    for (const f of pend){ if (S.prog && S.prog.cancel) break; progStep(`Foto ${++k} de ${pend.length}`, '');
+      try { c[f] = await nitidez(f); } catch { c[f] = { v:999, w:9999, h:9999, err:1 }; } progDone(); if (k % 10 === 0) lsSet('cat.blur', c); }
+    lsSet('cat.blur', c); progEnd(); }
+  S.fFoto = 'borrosa'; render();
+  const n = S.arts.filter(artBorroso).length; toast(n ? `${n} ${n === 1 ? 'artículo tiene' : 'artículos tienen'} fotos borrosas o pequeñas` : 'No encontré fotos borrosas ✓');
+}
 function toCanvas(src, max){
   const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height;
   const k = Math.min(1, max / Math.max(w0, h0));
@@ -1399,7 +1426,7 @@ function vChipsLinea(){
 function artsFiltrados(){
   const q = S.q.trim().toLowerCase();
   return S.arts.filter(a => (!S.fProv || a.proveedorId === S.fProv) && (!S.fLinea || lineaArt(a) === S.fLinea) &&
-    (!S.fFoto || (S.fFoto === 'si' ? (a.fotos || []).length > 0 : !(a.fotos || []).length)) &&
+    (!S.fFoto || (S.fFoto === 'borrosa' ? artBorroso(a) : S.fFoto === 'si' ? (a.fotos || []).length > 0 : !(a.fotos || []).length)) &&
     (!S.fSinPrecio || precio(a, verMay() ? 'mayoreo' : 'menudeo') == null) &&
     (!q || [a.estilo, a.nombre, a.factura, a.categoria, ...(a.colores||[])].join(' ').toLowerCase().includes(q))).sort(ordenFn(ordDe('arts')));
 }
@@ -1460,6 +1487,9 @@ function vArts(){
         <button class="chip" data-ffoto="" aria-pressed="${!S.fFoto}">Con y sin foto</button>
         <button class="chip" data-ffoto="si" aria-pressed="${S.fFoto === 'si'}">Con foto · ${conF}</button>
         <button class="chip" data-ffoto="no" aria-pressed="${S.fFoto === 'no'}">Sin foto · ${sinF}</button>
+        ${(() => { const pend = fotosSinRevisar().length; const nb = base.filter(artBorroso).length;
+          return S.fFoto === 'borrosa' || (!pend && nb) ? `<button class="chip ${nb ? 'wirr' : ''}" data-ffoto="${S.fFoto === 'borrosa' ? '' : 'borrosa'}" aria-pressed="${S.fFoto === 'borrosa'}">Borrosas · ${nb}${pend ? ' (+' + pend + ' sin revisar)' : ''}</button>${pend ? '<button class="chip" data-act="blurscan">Revisar nuevas</button>' : ''}`
+            : `<button class="chip" data-act="blurscan">${pend ? 'Buscar fotos borrosas' : 'Borrosas · 0'}</button>`; })()}
         ${S.fSinPrecio ? '<button class="chip" data-act="quitarsinprecio" aria-pressed="true">Sin precio ×</button>' : ''}</div>
       ${ordSel('arts')}<button class="linkbtn" data-act="selmode">${S.selMode ? 'Listo' : 'Seleccionar'}</button></div>
     ${!S.fProv && !S.selMode && S.arts.some(a => (a.fotos || []).length) ? '<button class="linkbtn" data-act="hropen" style="align-self:flex-start">Poner fotos grandes en lugar de las recortadas</button>' : ''}
@@ -4703,6 +4733,7 @@ document.addEventListener('click', async e => {
     case 'vjdel': { const v = S.sheet.v; for (const a of S.arts.filter(x => x.viajeId === v.id)) await save('articulos', a.id, { ...a, viajeId:null }); if ((S.viajes || []).some(x => x.id === v.id)) await remove('viajes', v.id); S.sheet = null; render(); toast('Viaje eliminado'); break; }
     case 'xlsxall': exportarExcel(true); break;
     case 'respaldo': exportarRespaldo(); break;
+    case 'blurscan': revisarBorrosas(); break;
     case 'resimp': $('#inResp').click(); break;
     case 'pycsalir': if (window.PYC_SALIR) window.PYC_SALIR(); break;
     case 'usoesp': usoEspacio(); break;
