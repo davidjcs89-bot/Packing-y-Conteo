@@ -72,7 +72,7 @@
        compras    -> la compra completa (solo administrador)
        recepciones -> lo necesario para contar (líneas sin costo, proveedor) + el estado del conteo
        config     -> configuración completa; config_pub -> la parte sin costos ni factores */
-  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId'];
+  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId', 'precioEtiqueta', 'monedaEtiqueta'];
   const REC_KEYS = ['contEq', 'contEmb', 'conteos', 'estadoEq', 'estadoEmb', 'recibido', 'recibidoEq', 'difEq', 'cambios', 'eqContadoAt', 'embContadoAt', 'estado', 'verificadaAt', 'reclamo'];
   const CFG_PUB = ['tipos', 'tiposRecientes', 'tallasExtra', 'tallasDef', 'coloresDef', 'coloresRec', 'fotosExtra', 'fechaModo', 'fechaTexto', 'subMen', 'subMay', 'origenDef', 'verMenudeo', 'verMayoreo', 'ord_arts', 'ord_bod', 'taraCajaLb', 'taraBultoLb', 'taraBolsaLb', 'cartonSimpleLbFt2', 'cartonDobleLbFt2'];
   const pick = (o, ks) => { const r = {}; for (const k of ks) if (o && o[k] !== undefined) r[k] = o[k]; return r; };
@@ -486,7 +486,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .cand .src{grid-column:1/-1;font-family:var(--f-mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cand .ex{display:flex;gap:8px;align-items:center;grid-column:1/-1;flex-wrap:wrap}
 .minithumb{width:40px;height:52px;border-radius:6px;object-fit:cover;border:1px solid var(--line)}
-.seg.three{grid-template-columns:repeat(3,1fr)}
+.seg.three{grid-template-columns:repeat(3,1fr)}.seg.four{grid-template-columns:repeat(4,1fr)}.seg.four button{font-size:12.5px;padding-left:4px;padding-right:4px}
 .seg.three button{font-size:13px;padding:9px 4px;line-height:1.2}
 .invstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .invshot{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line);aspect-ratio:9/16;background:var(--card);max-width:100%}
@@ -798,6 +798,7 @@ details.provbar>summary{list-style:none;cursor:pointer}details.provbar>summary::
 <input type="file" id="inCam" accept="image/*" capture="environment" hidden>
 <input type="file" id="inGal" accept="image/*" multiple hidden>
 <input type="file" id="inPdf" accept="application/pdf,.pdf" hidden>
+<input type="file" id="inXls" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>
 <input type="file" id="inDocs" accept="image/*,application/pdf,.pdf" multiple hidden>
 <input type="file" id="inShots" accept="image/*" multiple hidden>
 <input type="file" id="inHr" accept="image/*" multiple hidden>
@@ -1324,6 +1325,55 @@ async function importarN41(pdf, r){
   buildInvCands();
   S.importMsg = `Factura ${r.vendedor ? r.vendedor + ' ' : ''}Nº ${r.factura || '—'}${r.fecha ? ' del ' + fechaTxt(r.fecha) : ''}${r.pagado ? ' · pagada' : ''}. ${pv ? '' : r.vendedor ? `Elige o crea el proveedor "${r.vendedor}". ` : ''}Elige el tipo de artículo de cada estilo.`;
   S.importMsgTipo = 'info';
+}
+/* ---------- Factura en Excel ----------
+   Busca la fila de encabezados (Estilo + Cantidad) y lee una fila por estilo. Columnas reconocidas:
+   Estilo, Cantidad, Precio unitario (costo), Total (de la línea), Precio total / etiqueta (precio de etiqueta del proveedor),
+   Color, Talla, Descripción. Sin color ni talla, el artículo queda "Sin color · Única". */
+async function importarExcel(file){
+  S.parsing = true; S.importMsg = ''; render();
+  try {
+    if (!window.ExcelJS) await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+    const wb = new ExcelJS.Workbook(); const buf = await file.arrayBuffer();
+    if (/\.csv$/i.test(file.name) && !wb.worksheets.length){ const txt = new TextDecoder().decode(buf); const ws = wb.addWorksheet('csv'); txt.split(/\r?\n/).forEach(l => { if (l.trim()) ws.addRow(l.split(/[;,\t]/).map(x => { const v = x.trim().replace(/^"|"$/g, ''); return v !== '' && !isNaN(+v) ? +v : v; })); }); }
+    else if (!/\.csv$/i.test(file.name)) await wb.xlsx.load(buf);
+    const ws = wb.worksheets[0]; if (!ws) throw new Error('El archivo no tiene hojas');
+    const val = c => { let v = c && c.value; if (v && typeof v === 'object'){ if ('result' in v) v = v.result; else if (v.richText) v = v.richText.map(x => x.text).join(''); else if (v.text) v = v.text; } return v; };
+    const filasX = []; ws.eachRow({ includeEmpty:false }, row => { const a = []; row.eachCell({ includeEmpty:true }, (c, n) => { a[n - 1] = val(c); }); filasX.push(a); });
+    const norm = x => sinAcento(String(x == null ? '' : x)).replace(/\s+/g, ' ').trim();
+    let hi = -1, col = {};
+    for (let i = 0; i < Math.min(filasX.length, 20) && hi < 0; i++){ const h = (filasX[i] || []).map(norm);
+      const find = re => h.findIndex(x => re.test(x));
+      const e = find(/^(estilo|style|modelo|model|codigo|cod\.?|art(iculo)?\.? ?(no|n)?\.?|item no\.?|ref(erencia)?|sku|款号|货号)$/), q = find(/^(cantidad|cant\.?|qty|quantity|pcs|piezas|unidades|数量|件数)$/);
+      if (e >= 0 && q >= 0){ hi = i; col = { e, q,
+        u: find(/(precio )?unitario|unit ?price|p\. ?unit|^unit|单价|^precio$|^costo$/),
+        t: find(/^(total|importe|subtotal|monto|金额|total linea)$/),
+        et: find(/precio total|etiqueta|pvp|retail|tag|吊牌|precio lista|precio de lista/),
+        c: find(/^(color|colour|颜色)$/), ta: find(/^(talla|size|tallas|尺码)$/), d: find(/descrip|nombre|producto|item|品名/) }; } }
+    if (hi < 0) throw new Error('No encontré la fila de encabezados con "Estilo" y "Cantidad"');
+    const num = v => { if (v == null || v === '') return null; if (typeof v === 'number') return v; const n = parseFloat(String(v).replace(/[^0-9.,-]/g, '').replace(',', '.')); return isNaN(n) ? null : n; };
+    const filas = []; let totalFac = null;
+    for (const a of filasX.slice(hi + 1)){
+      const est = String(a[col.e] ?? '').trim(); const q = num(a[col.q]);
+      if (!est){ if (q != null && col.t >= 0 && num(a[col.t]) != null) totalFac = num(a[col.t]); continue; }
+      if (/^total/i.test(est)){ if (col.t >= 0) totalFac = num(a[col.t]); continue; }
+      if (!q) continue;
+      let cu = col.u >= 0 ? num(a[col.u]) : null; const tot = col.t >= 0 ? num(a[col.t]) : null;
+      if (cu == null && tot != null) cu = Math.round(tot / q * 1000) / 1000;
+      const color = col.c >= 0 ? String(a[col.c] ?? '').trim() : ''; const talla = col.ta >= 0 ? String(a[col.ta] ?? '').trim().toUpperCase() : '';
+      filas.push({ estilo:est.toUpperCase(), descripcion:col.d >= 0 ? String(a[col.d] ?? '').trim() : '', nombre_es:'', color:color ? colorEs(color) : '', tallas:talla ? [talla] : [],
+        cant_tallas:talla ? { [talla]:q } : {}, cantidad:q, costo_unitario:cu, total:tot ?? (cu != null ? Math.round(cu * q * 100) / 100 : null), etiqueta:col.et >= 0 ? num(a[col.et]) : null, moneda:'', foto:null });
+    }
+    if (!filas.length) throw new Error('No encontré filas con estilo y cantidad');
+    S.invShots = S.invShots.filter(x => !x.pdf && !x.xls);
+    S.invShots.push({ key:uid(), xls:true, file:null, url:null, status:'ok', filas, total:totalFac, hash:'xls:' + file.name + ':' + file.size });
+    S.xlsName = file.name; S.xlsFile = file;
+    if (!S.importFact){ S.importFact = file.name.replace(/\.(xlsx?|csv)$/i, '').slice(0, 30); }
+    if (!S.impMoneda) S.impMoneda = 'RMB';
+    buildInvCands();
+    S.importMsg = `${filas.length} filas leídas de ${file.name}. Moneda: ${impMon() === 'RMB' ? 'yuanes' : 'dólares'} (cámbiala arriba si no es así). Elige el proveedor y el tipo de artículo de cada estilo.`; S.importMsgTipo = 'info';
+  } catch (e) { S.importMsg = 'No se pudo leer el Excel: ' + (e.message || e); S.importMsgTipo = ''; }
+  finally { S.parsing = false; render(); }
 }
 async function importPdf(file){
   S.pdfFile = file;
@@ -2254,8 +2304,8 @@ function vImport(){
   const sm = S.invSum;
   const aiOff = !S.sampleImg ? '<div class="note err small">La lectura con IA no está disponible en esta vista. Abre la app desde claude.ai y acepta el permiso cuando lo pida.</div>' : '';
   return `
-    <div class="seg three" role="group" aria-label="Origen de los artículos">
-      <button data-imp="factcap" aria-pressed="${m === 'factcap'}">Factura en capturas</button><button data-imp="fotos" aria-pressed="${m === 'fotos'}">Fotos de prendas</button><button data-imp="pdf" aria-pressed="${m === 'pdf'}">Factura PDF</button></div>
+    <div class="seg four" role="group" aria-label="Origen de los artículos">
+      <button data-imp="factcap" aria-pressed="${m === 'factcap'}">Factura en capturas</button><button data-imp="fotos" aria-pressed="${m === 'fotos'}">Fotos de prendas</button><button data-imp="pdf" aria-pressed="${m === 'pdf'}">Factura PDF</button><button data-imp="excel" aria-pressed="${m === 'excel'}">Factura Excel</button></div>
     <div class="panel">
       <div class="row2">
         <label class="field"><span>Proveedor</span><select class="inp" id="impProv" data-bind="importProv"><option value="">Elegir…</option>${opts}</select></label>
@@ -2274,6 +2324,9 @@ function vImport(){
           ${S.reading ? '' : `<button class="rm" data-invrm="${x.key}" aria-label="Quitar captura ${i+1}">×</button>`}</div>`).join('')}</div>
         ${S.sampleImg && invPend ? `<button class="btn primary block" data-act="readinv" ${S.reading ? 'disabled' : ''}>${esc(S.reading) || `Leer factura · ${invPend} ${invPend === 1 ? 'captura' : 'capturas'}`}</button>` : ''}
         ${aiOff}` : `<div class="small muted">Elige todas las capturas de la factura en orden, de arriba hacia abajo. La IA lee cada fila: estilo, descripción, color, tallas, cantidad, costo unitario y total. Las filas repetidas entre capturas se descartan.</div>${aiOff}`}`
+      : m === 'excel' ? `
+      <button class="btn primary block" data-act="pickxls" ${S.parsing ? 'disabled' : ''}>${I.xls || I.pdf}${S.parsing ? 'Leyendo Excel…' : S.xlsName ? 'Elegir otro Excel' : 'Elegir factura en Excel'}</button>
+      ${S.xlsName ? `<div class="small muted">${esc(S.xlsName)}</div>` : `<div class="small muted">Archivo .xlsx o .csv con una fila por estilo. La app busca las columnas Estilo, Cantidad, Precio unitario (costo), Total y, si las hay, Color, Talla, Descripción y Precio de etiqueta.</div>`}`
       : m === 'fotos' ? `
       <button class="btn primary block" data-act="pickshots" ${S.importing ? 'disabled' : ''}>${I.img}${nShots ? 'Agregar más fotos' : 'Elegir fotos del carrete'}</button>
       <div class="small muted">Una foto por prenda. Cada foto se vuelve un artículo del proveedor elegido; recórtala para dejar solo la prenda.</div>
@@ -2284,7 +2337,7 @@ function vImport(){
     </div>
     ${S.importMsg ? `<div class="note ${/^No se pudo|^La IA/.test(S.importMsg) || S.importMsgTipo === 'aviso' ? 'err' : S.importMsgTipo === 'info' ? 'info' : ''}">${esc(S.importMsg)}</div>` : ''}
     ${m === 'factcap' && S.repAviso && S.invShots.some(x => x.repetida) ? `<div class="note err">${esc(S.repAviso)}</div>` : ''}
-    ${(m === 'factcap' || m === 'pdf') && sm ? `<div class="panel"><span class="label">Resumen de lo leído</span>
+    ${(m === 'factcap' || m === 'pdf' || m === 'excel') && sm ? `<div class="panel"><span class="label">Resumen de lo leído</span>
       <div class="sum">
         <div><span class="small muted">Estilos</span><b>${sm.estilos}</b></div>
         <div><span class="small muted">Piezas</span><b>${sm.piezas}</b></div>
@@ -2455,6 +2508,7 @@ function vSheet(){
 `;
         })()}
 </div>
+        ${a.precioEtiqueta != null && !EMP() ? `<div class="small muted">Precio de etiqueta del proveedor: <b>${fmtCosto(+a.precioEtiqueta, a.monedaEtiqueta || 'USD')}</b></div>` : ''}
         <div class="solo-admin">${vEnvio(a)}</div>
         <div class="section"><span class="label">Precio de venta</span>
         <div class="pricebox one">${pb('mayoreo','pMay','Mayoreo')}${pb('menudeo','pMen','Menudeo')}</div>
@@ -4829,6 +4883,7 @@ document.addEventListener('click', async e => {
     case 'nodel': S.sheet.confirmDel = false; render(); break;
     case 'del': try { await remove('articulos', S.sheet.a.id); S.sheet = null; render(); toast('Artículo eliminado'); } catch (er) { toast('No se pudo eliminar: ' + er.message); } break;
     case 'pickpdf': S.pdfForPhoto = false; $('#inPdf').click(); break;
+    case 'pickxls': $('#inXls').click(); break;
     case 'pickshots': S.shotsFor = 'fotos'; $('#inShots').click(); break;
     case 'pickinv': S.shotsFor = 'inv'; $('#inShots').click(); break;
     case 'readinv': await readInvoice(); break;
@@ -4979,6 +5034,7 @@ document.addEventListener('change', async e => {
   if (d.cat){ S.cat[d.cat] = d.cat === 'porPag' ? +t.value : t.value; if (['prov','fact','categoria'].includes(d.cat)) S.catSel = null; lsSet('cat.cfg', S.cat); render(); return; }
   if (d.e === 'proveedorId'){ if (t.value === '__new'){ t.value = S.sheet.a.proveedorId || ''; openNewProv(false, S.sheet); return; } S.sheet.a.proveedorId = t.value; recProv(t.value); render(); return; }
   if (t.id === 'inGal' && S.quickFotoFor){ const id = S.quickFotoFor; S.quickFotoFor = null; const files = [...t.files]; t.value = ''; if (files.length) await quickPhotos(id, files); return; }
+  if (t.id === 'inXls'){ const f = t.files[0]; t.value = ''; if (f) await importarExcel(f); return; }
   if (t.id === 'inResp'){ const f = t.files[0]; t.value = ''; if (f) await importarRespaldo(f); return; }
   if (t.id === 'inScan'){ const f = t.files[0]; t.value = ''; if (f) await escanear(f); return; }
   if (t.id === 'inLbl'){ const f = t.files[0]; t.value = ''; if (f) await leerEtiqueta(f); return; }
@@ -5272,6 +5328,7 @@ function buildInvCands(){
       tallas.forEach(t => g.tallas.includes(t) || g.tallas.push(t));
       g.cantidad += cant; g.total = r2(g.total + (tot ?? (cu != null ? cu * cant : 0)));
       if (cu != null) g.costos.push(cu);
+      if (g.etiqueta == null && f.etiqueta != null && !isNaN(+f.etiqueta)) g.etiqueta = +f.etiqueta;
       if (f.moneda) g.moneda = String(f.moneda).toUpperCase();
       if (!g.foto && f.foto) g.foto = f.foto; else if (f.foto && f.foto !== g.foto){ g.mas = g.mas || []; if (!g.mas.includes(f.foto)) g.mas.push(f.foto); }
       const ct = {}; if (f.cant_tallas && typeof f.cant_tallas === 'object') for (const [k, v] of Object.entries(f.cant_tallas)){ const q = num(v); if (q > 0) ct[String(k).trim().toUpperCase()] = q; }
@@ -5385,13 +5442,14 @@ async function doImport(){
     if (g.costo == null && c.costo != null) g.costo = c.costo;
     if (g.pMen == null && c.pMen != null) g.pMen = c.pMen;
     if (g.pMay == null && c.pMay != null) g.pMay = c.pMay;
+    if (g.etiqueta == null && c.etiqueta != null) g.etiqueta = c.etiqueta;
     g.colores = uniq([...g.colores, ...c.colores]); g.tallas = uniq([...g.tallas, ...tallas]);
     for (const f of [c.foto, ...(c.mas || [])]) if (f && !g.fotos.includes(f)) g.fotos.push(f);
     if (!c.foto && c.raw) g.raws.push(c.raw);
     if (c.inv){ g.inv = true; g.cantidad += c.cantidad || 0; g.detalle.push(...(c.detalle || [])); }
   }
   let nuevos = 0, act = 0, i = 0;
-  const docsImp = S.cfg.respFact !== false ? [...(S.impMode === 'pdf' || S.pdf ? (S.pdfFile ? [S.pdfFile] : []) : []), ...S.invShots.map(x => x.file).filter(Boolean)] : [];
+  const docsImp = S.cfg.respFact !== false ? [...(S.impMode === 'pdf' || S.pdf ? (S.pdfFile ? [S.pdfFile] : []) : []), ...(S.impMode === 'excel' && S.xlsFile ? [S.xlsFile] : []), ...S.invShots.map(x => x.file).filter(Boolean)] : [];
   const metaImp = { proveedorId:S.importProv, factura:(S.importFact || '').trim(), origen:'importacion' };
   const compraItems = []; const provImp = S.importProv, facImp = (S.importFact || '').trim();
   progStart('Importando artículos', grupos.size, true);
@@ -5411,12 +5469,12 @@ async function doImport(){
       let artIdMov = ex ? ex.id : null;
       if (ex){
         const extra = g.inv ? { cantidad: ex.factura && ex.factura === S.importFact ? g.cantidad : (ex.cantidad || 0) + g.cantidad, detalle:g.detalle } : {};
-        await save('articulos', ex.id, { ...ex, costo:toUsd(g.costo) ?? ex.costo, ...orig, ...(g.pMen != null ? { pMen:g.pMen } : {}), ...(g.pMay != null ? { pMay:g.pMay } : {}),
+        await save('articulos', ex.id, { ...ex, costo:toUsd(g.costo) ?? ex.costo, ...orig, ...(g.etiqueta != null ? { precioEtiqueta:g.etiqueta, monedaEtiqueta:impMon() } : {}), ...(g.pMen != null ? { pMen:g.pMen } : {}), ...(g.pMay != null ? { pMay:g.pMay } : {}),
           factura:S.importFact || ex.factura, nombre:ex.nombre || g.nombre, colores:uniq([...(ex.colores||[]), ...g.colores]), tallas:uniq([...(ex.tallas||[]), ...g.tallas]),
           fotos:uniq([...(ex.fotos||[]), ...g.fotos]), ...extra, ...stkExtra, ejemplo:false }); act++;
       } else {
         artIdMov = uid();
-        await save('articulos', artIdMov, { estilo:g.est, nombre:g.nombre, categoria:'', proveedorId:S.importProv, factura:S.importFact.trim(), costo:toUsd(g.costo), ...orig,
+        await save('articulos', artIdMov, { estilo:g.est, nombre:g.nombre, categoria:'', proveedorId:S.importProv, factura:S.importFact.trim(), costo:toUsd(g.costo), ...orig, ...(g.etiqueta != null ? { precioEtiqueta:g.etiqueta, monedaEtiqueta:impMon() } : {}),
           pMen:g.pMen, pMay:g.pMay, colores:g.colores, tallas:g.tallas, fotos:g.fotos, creado:Date.now(), ejemplo:false, ...(g.inv ? { cantidad:g.cantidad, detalle:g.detalle } : {}), ...stkExtra }); nuevos++;
       }
       if (ci) ci.artId = artIdMov;

@@ -64,7 +64,7 @@
        compras    -> la compra completa (solo administrador)
        recepciones -> lo necesario para contar (líneas sin costo, proveedor) + el estado del conteo
        config     -> configuración completa; config_pub -> la parte sin costos ni factores */
-  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId'];
+  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId', 'precioEtiqueta', 'monedaEtiqueta'];
   const REC_KEYS = ['contEq', 'contEmb', 'conteos', 'estadoEq', 'estadoEmb', 'recibido', 'recibidoEq', 'difEq', 'cambios', 'eqContadoAt', 'embContadoAt', 'estado', 'verificadaAt', 'reclamo'];
   const CFG_PUB = ['tipos', 'tiposRecientes', 'tallasExtra', 'tallasDef', 'coloresDef', 'coloresRec', 'fotosExtra', 'fechaModo', 'fechaTexto', 'subMen', 'subMay', 'origenDef', 'verMenudeo', 'verMayoreo', 'ord_arts', 'ord_bod', 'taraCajaLb', 'taraBultoLb', 'taraBolsaLb', 'cartonSimpleLbFt2', 'cartonDobleLbFt2'];
   const pick = (o, ks) => { const r = {}; for (const k of ks) if (o && o[k] !== undefined) r[k] = o[k]; return r; };
