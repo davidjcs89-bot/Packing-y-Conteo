@@ -1163,13 +1163,16 @@ function nombreArchivoCat(){
 async function generar(){
   if (!catChosen().length){ toast('Elige al menos un artículo'); return; }
   if (!window.jspdf){ toast('El generador de PDF no cargó. Vuelve a abrir la app.'); return; }
+  // En el sitio web el PDF se abre en una pestaña nueva; la pestaña se abre ya (al tocar) para que el navegador no la bloquee
+  let w = null; if (!S.downloads){ try { w = window.open('', '_blank'); if (w) w.document.write('<title>Catálogo</title><p style="font:16px system-ui;padding:24px">Generando el catálogo en PDF…</p>'); } catch { w = null; } }
   S.gen = true; render();
   try {
     const doc = await buildPdf();
-    const name = nombreArchivoCat();
-    await bajarArchivo({ filename:name, data:doc.output('blob') });
-    toast('PDF listo: ' + name);
+    const name = nombreArchivoCat(); const blob = doc.output('blob');
+    if (w && !w.closed){ const u = URL.createObjectURL(new File([blob], name, { type:'application/pdf' })); w.location.href = u; setTimeout(() => URL.revokeObjectURL(u), 10 * 60000); toast('PDF abierto en una pestaña nueva: ' + name); }
+    else { await bajarArchivo({ filename:name, data:blob }); toast('PDF listo: ' + name); }
   } catch (e) {
+    if (w && !w.closed) try { w.close(); } catch {}
     if (e && e.code === 'declined') toast('Descarga cancelada');
     else toast('No se pudo generar el PDF: ' + ((e && e.message) || e));
   } finally { S.gen = false; render(); }
