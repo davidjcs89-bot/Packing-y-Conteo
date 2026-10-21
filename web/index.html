@@ -1361,7 +1361,8 @@ async function importarExcel(file){
       let cu = col.u >= 0 ? num(a[col.u]) : null; const tot = col.t >= 0 ? num(a[col.t]) : null;
       if (cu == null && tot != null) cu = Math.round(tot / q * 1000) / 1000;
       const color = col.c >= 0 ? String(a[col.c] ?? '').trim() : ''; const talla = col.ta >= 0 ? String(a[col.ta] ?? '').trim().toUpperCase() : '';
-      filas.push({ estilo:est.toUpperCase(), descripcion:col.d >= 0 ? String(a[col.d] ?? '').trim() : '', nombre_es:'', color:color ? colorEs(color) : '', tallas:talla ? [talla] : [],
+      const desc = col.d >= 0 ? String(a[col.d] ?? '').trim() : '';
+      filas.push({ estilo:est.toUpperCase(), descripcion:desc, nombre_es:desc, // la descripción (Pendientes, Collar…) queda como tipo de artículo color:color ? colorEs(color) : '', tallas:talla ? [talla] : [],
         cant_tallas:talla ? { [talla]:q } : {}, cantidad:q, costo_unitario:cu, total:tot ?? (cu != null ? Math.round(cu * q * 100) / 100 : null), etiqueta:col.et >= 0 ? num(a[col.et]) : null, moneda:'', foto:null });
     }
     if (!filas.length) throw new Error('No encontré filas con estilo y cantidad');
@@ -1371,7 +1372,7 @@ async function importarExcel(file){
     if (!S.importFact){ S.importFact = file.name.replace(/\.(xlsx?|csv)$/i, '').slice(0, 30); }
     if (!S.impMoneda) S.impMoneda = 'RMB';
     buildInvCands();
-    S.importMsg = `${filas.length} filas leídas de ${file.name}. Moneda: ${impMon() === 'RMB' ? 'yuanes' : 'dólares'} (cámbiala arriba si no es así). Elige el proveedor y el tipo de artículo de cada estilo.`; S.importMsgTipo = 'info';
+    S.importMsg = `${filas.length} filas leídas de ${file.name}. Moneda: ${impMon() === 'RMB' ? 'yuanes' : 'dólares'} (cámbiala arriba si no es así). ${filas.some(f => f.nombre_es) ? 'El tipo de artículo se tomó de la columna Descripción; revísalo si hace falta.' : 'Elige el tipo de artículo de cada estilo.'} Elige el proveedor.`; S.importMsgTipo = 'info';
   } catch (e) { S.importMsg = 'No se pudo leer el Excel: ' + (e.message || e); S.importMsgTipo = ''; }
   finally { S.parsing = false; render(); }
 }
