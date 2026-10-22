@@ -1224,10 +1224,8 @@ function inicialesProv(n){
   return pal.map(w => w[0]).join('').toUpperCase();
 }
 function nombreArchivoCat(){
-  const ids = uniq(catChosen().map(a => a.proveedorId).filter(Boolean));
-  const ini = ids.map(id => inicialesProv((prov(id) || {}).nombre)).filter(Boolean);
-  const suf = ini.length === 0 ? '' : ini.length <= 3 ? '-' + ini.join('-') : '-VARIOS';
-  return 'Catalogo' + suf + (catTipo() === 'menudeo' && verMay() ? '-Menudeo' : '') + '.pdf';
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  return `Catalogo Divad Closet ${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()} ${z(d.getHours())}h${z(d.getMinutes())}.pdf`;
 }
 async function generar(){
   if (!catChosen().length){ toast('Elige al menos un artículo'); return; }
@@ -1238,7 +1236,11 @@ async function generar(){
   try {
     const doc = await buildPdf();
     const name = nombreArchivoCat(); const blob = doc.output('blob');
-    if (w && !w.closed){ const u = URL.createObjectURL(new File([blob], name, { type:'application/pdf' })); w.location.href = u; setTimeout(() => URL.revokeObjectURL(u), 10 * 60000); toast('PDF abierto en una pestaña nueva: ' + name); }
+    if (w && !w.closed){ const u = URL.createObjectURL(new File([blob], name, { type:'application/pdf' })); setTimeout(() => URL.revokeObjectURL(u), 30 * 60000);
+      // pestaña con visor y botón Descargar (así el archivo se guarda con su nombre; un enlace blob directo se guarda con un nombre raro)
+      const tt = name.replace(/\.pdf$/, ''); const e2 = x => x.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]);
+      w.document.open(); w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${e2(tt)}</title><style>html,body{margin:0;height:100%;font:15px system-ui,-apple-system,sans-serif;background:#f4f4f4}.bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid #ddd}.bar b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bar a{flex:none;background:#0e7c66;color:#fff;text-decoration:none;font-weight:600;padding:9px 14px;border-radius:8px}iframe{display:block;border:0;width:100%;height:calc(100% - 58px)}</style></head><body><div class="bar"><b>${e2(name)}</b><a href="${u}" download="${e2(name)}">Descargar PDF</a></div><iframe src="${u}" title="Catálogo"></iframe></body></html>`); w.document.close();
+      toast('PDF abierto en una pestaña nueva: ' + name); }
     else { await bajarArchivo({ filename:name, data:blob }); toast('PDF listo: ' + name); }
   } catch (e) {
     if (w && !w.closed) try { w.close(); } catch {}
