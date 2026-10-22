@@ -2716,7 +2716,7 @@ function vSheet(){
     return `<div class="sheet" role="dialog" aria-label="Alertas"><div class="sh-top"><div class="sh-bar"><button class="iconbtn" data-act="close" aria-label="Volver">${I.back}</button><h2>Alertas</h2></div></div>
       <div class="sh-body"><div class="sh-inner">
         <div class="panel"><div class="section-h"><h2>Foto vs. descripción</h2><span class="small muted">${S.revisando ? 'Revisando ' + esc(S.revisando) + '…' : al.pend.length ? al.pend.length + ' sin revisar' : 'Todo revisado'}</span></div>
-          <div class="small muted">La IA mira la foto principal de cada artículo y avisa si el tipo de artículo no coincide con lo escrito. Se revisa sola al importar.</div>
+          <div class="small muted">La IA mira la foto principal de cada artículo y avisa si el tipo de artículo no coincide con lo escrito. Solo se revisa cuando tocas el botón, porque cada foto usa IA.</div>
           ${S.sampleImg ? (al.pend.length && !S.revisando ? `<button class="btn primary" data-act="revisar">Revisar ${al.pend.length} ${al.pend.length === 1 ? 'foto' : 'fotos'} ahora</button>` : '') : '<div class="note err small">La revisión con IA no está disponible en esta vista.</div>'}
         </div>
         ${al.dup.length ? `<span class="label">Fotos repetidas en el mismo artículo</span>${al.dup.map(x => { const fa = x.a.fotos[x.i], fb = x.a.fotos[x.j];
@@ -5039,7 +5039,9 @@ document.addEventListener('click', async e => {
     case 'quitarsinprecio': S.fSinPrecio = false; S.desdeAlerta = null; render(); break;
     case 'vertodos': S.fSinPrecio = false; S.fFoto = ''; S.desdeAlerta = null; S.q = ''; render(); window.scrollTo(0, 0); break;
     case 'volveralertas': S.fSinPrecio = false; S.fFoto = ''; S.desdeAlerta = null; S.sheet = { kind:'notif' }; render(); break;
-    case 'revisar': await revisarFotos(null, false); break;
+    case 'revisar': { const n = S.arts.filter(revPendiente).length; if (!n) { toast('No hay fotos nuevas por revisar'); break; }
+      const ok = await elegirOpcion('Revisar fotos con IA', `Se revisarán ${n} ${n === 1 ? 'foto' : 'fotos'}. Cada foto es una consulta a la IA y tiene un costo de uso.`, [{ v:'si', t:`Revisar ${n} ${n === 1 ? 'foto' : 'fotos'}`, pri:true }], 'Cancelar');
+      if (ok === 'si') await revisarFotos(null, false); break; }
     case 'config': S.delAll = false; S.sheet = { kind:'config' }; render(); break;
     case 'askdelall': S.delAll = true; render(); break;
     case 'nodelall': S.delAll = false; render(); break;
@@ -5542,7 +5544,6 @@ async function doImport(){
     { const nuevosT = uniq([...grupos.values()].map(g => String(g.nombre || '').trim()).filter(t => t && !tipos().some(x => sinAcento(x) === sinAcento(t))));
       if (nuevosT.length){ S.cfg.tipos = uniq([...tipos(), ...nuevosT]); await saveCfg(); setTimeout(() => toast(`Tipos nuevos agregados al catálogo: ${nuevosT.join(', ')}`), 3600); } }
     const junt = sel.length - grupos.size;
-    setTimeout(() => revisarFotos(null, true), 1500);
     if (S.stkOmitidas){ setTimeout(() => toast(`${S.stkOmitidas} ${S.stkOmitidas === 1 ? 'artículo ya tenía' : 'artículos ya tenían'} la entrada de esta factura; no se sumó otra vez`), 2600); S.stkOmitidas = 0; }
     toast(`${nuevos} nuevos${act ? ' · ' + act + ' actualizados' : ''}${junt ? ' · ' + junt + (junt === 1 ? ' fila repetida unida' : ' filas repetidas unidas') : ''}${sinEst ? ' · ' + sinEst + ' sin estilo quedan en la lista' : ''}`);
     if (compraItems.length){ try { const items = compraItems.map(x => ({ ...x, a:S.arts.find(a => a.id === x.artId) || { id:x.artId, estilo:x.est, proveedorId:provImp, colores:x.g.colores, tallas:x.g.tallas, detalle:x.g.detalle, stock:{}, costo:toUsd(x.g.costo), costoOrigen:mon === 'RMB' ? x.g.costo : null } })).filter(x => x.a && x.a.id);
