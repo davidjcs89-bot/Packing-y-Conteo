@@ -183,6 +183,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .ctp-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.ctp-pick{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:50vh}
 .sh-est[data-copyest]{cursor:pointer;-webkit-user-select:all;user-select:all}
 .rol-emp .solo-admin{display:none!important}
+.pbusstick{position:sticky;top:calc(var(--top) + env(safe-area-inset-top,0px));z-index:6;background:var(--bg);padding:8px 0;display:flex;gap:8px;align-items:center}.pbusstick .search{flex:1}
 .cbusbar{display:flex;flex-direction:column;gap:8px}.cord{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .cqstick{position:sticky;top:0;z-index:20;background:var(--bg);margin:-16px -16px 0;padding:10px 16px 8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 10px -10px rgba(0,0,0,.35)}
 .sheet .sh-inner{max-width:480px;margin:0 auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
@@ -631,6 +632,7 @@ const S = {
   tab: lsGet('cat.tab','arts'), q:'', fProv:'', fLinea:'',
   pdf:null, pdfName:'', pdfThumbs:[], cands:[], parsing:false, importProv:lsGet('cat.impProv',''), importFact:'', importMsg:'',
   impMode: lsGet('cat.impMode2','factcap'), cOrd:lsGet('cat.cord', 'az'), cq:'', invShots:[], invSum:null, movs:[], bNivel:lsGet('cat.bnivel','resumen'), pVista:lsGet('cat.pvista','detalle'), provOpen:null, bFiltro:'', bProv:'', bq:'', bVerMas:false, fFoto:'', selMode:false, selIds:new Set(), selConfirm:false, swOpen:null, swConfirm:null, cfg:Object.assign({ verMenudeo:false, verMayoreo:true, verCosto:false, subMay:'Catálogo mayorista · precios por unidad', subMen:'Catálogo', fechaModo:'completa', fechaTexto:'', fotosExtra:true, verMult:true }, lsGet('cat.cfgPrecios', {})), reveal:new Set(), quickFotoFor:null, impMoneda:null, tc:lsGet('cat.tc',''), sample:null, sampleImg:null, reading:'', importing:'',
+  pSub: lsGet('cat.pSub', 'provs'), pq: '',
   cat: Object.assign({ tipo:'menudeo', titulo:'Nueva colección', contacto:'', prov:'', fact:'', categoria:'', porPag:4 }, lsGet('cat.cfg', {})),
   catSel: null, // Set de ids; null = todos los filtrados
   sheet:null, // {kind, ...}
@@ -2212,15 +2214,24 @@ function vCat(){
 `;
 }
 
+const provSub = () => S.pSub === 'viajes' ? 'viajes' : 'provs';
+const pqHit = (...xs) => { const q = sinAcento(S.pq || '').trim(); return !q || q.split(/\s+/).every(w => xs.some(x => sinAcento(String(x || '')).includes(w))); };
 function vProvs(){
+  const vj = provSub() === 'viajes';
   return `
-    ${vViajes()}
-    <h2 style="margin-top:6px">Proveedores</h2>
+    <div class="seg" role="tablist" aria-label="Proveedores"><button role="tab" data-psub="provs" aria-pressed="${!vj}">Proveedores <span class="small" style="opacity:.75">${S.provs.length}</span></button><button role="tab" data-psub="viajes" aria-pressed="${vj}">Viajes de compra <span class="small" style="opacity:.75">${(S.viajes || []).length}</span></button></div>
+    <div class="pbusstick"><div class="search">${I.search}<input class="inp" id="pbus" type="search" enterkeyhint="search" autocomplete="off" autocorrect="off" spellcheck="false" data-pbus="1" value="${esc(S.pq || '')}" placeholder="${vj ? 'Buscar viaje, lugar o estilo' : 'Buscar proveedor, contacto o estilo'}"><button type="button" class="qclear" data-act="pbusclear" aria-label="Borrar búsqueda" ${S.pq ? '' : 'hidden'}>×</button></div></div>
+    <div id="plista">${vj ? vViajes() : vProvLst()}</div>`;
+}
+function vProvLst(){
+  const provs = S.provs.filter(p => pqHit(p.nombre, p.contacto, ...S.arts.filter(a => a.proveedorId === p.id).map(a => a.estilo)));
+  return `
     <button class="btn primary block" data-act="newprov">${I.plus}Nuevo proveedor</button>
     <div class="note small">El precio se calcula como <b>costo en dólares × factor</b>. Si el proveedor factura en yuanes, primero se divide para el tipo de cambio y se redondea hacia arriba al dólar entero; ese costo se multiplica por el factor.</div>
     <div class="seg" role="group" aria-label="Vista de proveedores"><button data-pvista="compacta" aria-pressed="${S.pVista === 'compacta'}">Compacta</button><button data-pvista="detalle" aria-pressed="${S.pVista !== 'compacta'}">Detallada</button></div>
-    ${S.pVista === 'compacta' ? `<div class="pclist">${S.provs.map(p => { const n = S.arts.filter(a => a.proveedorId === p.id).length; const pzs = S.arts.filter(a => a.proveedorId === p.id).reduce((x, a) => x + (tieneStock(a) ? totalStock(a) : 0), 0); const open = S.provOpen === p.id; const bad = p.fMen != null && p.fMay != null && +p.fMen <= +p.fMay;
-      return `<button class="pcrow ${open ? 'open' : ''}" data-provopen="${p.id}" aria-expanded="${open}"><span class="pcn"><b>${esc(p.nombre)}</b><span class="small muted">${n} art.${pzs ? ' · ' + pzs + ' pzs' : ''}</span></span><span class="pcm mono">${p.moneda === 'RMB' ? '¥' : '$'}</span><span class="pcf mono"><span>May ×${fmtF(+p.fMay || 0)}</span><span class="${bad ? 'err' : ''}">Men ×${fmtF(+p.fMen || 0)}</span></span><span class="pcc" aria-hidden="true">${open ? '▴' : '▾'}</span></button>${open ? provCard(p) : ''}`; }).join('')}</div>` : S.provs.map(provCard).join('')}
+    ${S.pq && !provs.length ? `<div class="small muted" style="padding:12px 2px">Ningún proveedor coincide con «${esc(S.pq)}».</div>` : ''}
+    ${S.pVista === 'compacta' ? `<div class="pclist">${provs.map(p => { const n = S.arts.filter(a => a.proveedorId === p.id).length; const pzs = S.arts.filter(a => a.proveedorId === p.id).reduce((x, a) => x + (tieneStock(a) ? totalStock(a) : 0), 0); const open = S.provOpen === p.id; const bad = p.fMen != null && p.fMay != null && +p.fMen <= +p.fMay;
+      return `<button class="pcrow ${open ? 'open' : ''}" data-provopen="${p.id}" aria-expanded="${open}"><span class="pcn"><b>${esc(p.nombre)}</b><span class="small muted">${n} art.${pzs ? ' · ' + pzs + ' pzs' : ''}</span></span><span class="pcm mono">${p.moneda === 'RMB' ? '¥' : '$'}</span><span class="pcf mono"><span>May ×${fmtF(+p.fMay || 0)}</span><span class="${bad ? 'err' : ''}">Men ×${fmtF(+p.fMen || 0)}</span></span><span class="pcc" aria-hidden="true">${open ? '▴' : '▾'}</span></button>${open ? provCard(p) : ''}`; }).join('')}</div>` : provs.map(provCard).join('')}
 `;
 }
 function provCard(p){ const n = S.arts.filter(a => a.proveedorId === p.id).length; return `<div class="prov">
@@ -2831,10 +2842,10 @@ function viajeCargo(a){
   return { v, monto:r2c(+a.costo * r.pct / 100), txt:`${r.pct.toFixed(1)}% del costo` };
 }
 function vViajes(){
-  const l = S.viajes || [];
+  const todos = S.viajes || []; const l = todos.filter(v => pqHit(v.nombre, v.desde, v.hasta, v.notas, ...S.arts.filter(a => a.viajeId === v.id).map(a => a.estilo)));
   return `<div class="section"><div class="section-h"><h2>Viajes de compra</h2><button class="btn" data-act="newviaje" style="padding:7px 12px">${I.plus}Nuevo viaje</button></div>
     ${l.length ? l.map(v => { const r = viajeResumen(v); return `<button class="vj-card" data-viaje="${v.id}"><span class="txt"><b>${esc(v.nombre || 'Viaje')}</b><span class="small muted">${esc([[v.desde, v.hasta].filter(Boolean).join(' → '), r.arts.length ? `${r.arts.length} art. · ${r.piezas} pzs` : 'sin artículos'].filter(Boolean).join(' · '))}</span></span><span class="vj-num"><b>${money(r.gastos)}</b><span class="small muted">${r.valor ? r.pct.toFixed(1) + '% de lo comprado' : ''}</span></span></button>`; }).join('')
-      : '<div class="small muted">Registra aquí pasajes, hospedaje, comida y movilización de cada viaje. Se reparten entre las prendas compradas y se suman a su costo.</div>'}</div>`;
+      : todos.length ? `<div class="small muted">Ningún viaje coincide con «${esc(S.pq)}».</div>` : '<div class="small muted">Registra aquí pasajes, hospedaje, comida y movilización de cada viaje. Se reparten entre las prendas compradas y se suman a su costo.</div>'}</div>`;
 }
 function vViajeSheet(s){
   const v = s.v; const r = viajeResumen(v); const provsV = uniq(S.arts.filter(a => !a.ejemplo).map(a => a.proveedorId)).map(id => prov(id)).filter(Boolean);
@@ -4493,6 +4504,7 @@ document.addEventListener('click', async e => {
   const t = e.target.closest('button, [data-sel]'); if (!t) return;
   const d = t.dataset;
   if (d.bsub){ S.bSub = d.bsub; render(); return; }
+  if (d.psub){ if (S.pSub !== d.psub) S.pq = ''; S.pSub = d.psub; lsSet('cat.pSub', d.psub); render(); return; }
   if (d.reccontar){ const [tipo, cid] = d.reccontar.split('|'); const c = (S.compras || []).find(x => x.id === cid); if (!c) return;
     if (tipo === 'eq') S.sheet = { kind:'conteoEq', vid:c.viajeId || '', compraId:c.id, rec:{} };
     else S.sheet = { kind:'compra', c:JSON.parse(JSON.stringify(c)), modo:'contar', ses:{}, soloConteo:true };
@@ -4711,6 +4723,7 @@ document.addEventListener('click', async e => {
     case 'xlsx': exportarExcel(); break;
     case 'newcompra': S.sheet = { kind:'compra', isNew:true, c:nuevaCompra() }; render(); break;
     case 'compver': S.compVer = !S.compVer; render(); break;
+    case 'pbusclear': { S.pq = ''; const el = $('#pbus'); if (el){ el.value = ''; el.dispatchEvent(new Event('input', { bubbles:true })); el.focus(); } break; }
     case 'cbusclear': { S.cq = ''; const el = $('#cbus'); if (el){ el.value = ''; el.dispatchEvent(new Event('input', { bubbles:true })); el.focus(); } break; }
     case 'corrdup': corregirDuplicados(); break;
     case 'bfiltclear': S.bProv = ''; S.bq = ''; S.bFiltro = ''; render(); toast('Filtros quitados'); break;
@@ -4857,6 +4870,7 @@ document.addEventListener('input', e => {
     S.sheet.a.estilo = v; const otro = document.getElementById(t.id === 'e-estilo' ? 'e-estiloa' : 'e-estilo'); if (otro) otro.value = v; const ht = document.getElementById('sh-est'); if (ht) ht.textContent = v; return; }
   if (d.cp && S.sheet){ const [pi, fi, k] = d.cp.split(':'); const f = S.sheet.a.composicion[+pi].fibras[+fi]; if (k === 'p'){ const v = t.value.replace(/[^0-9.]/g, ''); f.p = v === '' ? null : Math.min(100, Math.round(+v)); } else f.f = t.value; cpPintar(); return; }
   if (d.cfgart){ const v = t.value.trim(); if (d.cfgart === 'tcDef'){ S.cfg.tcDef = num(v) || null; if (S.cfg.tcDef){ S.tc = String(S.cfg.tcDef); lsSet('cat.tc', S.tc); } } else if (['envioKg', 'impKg', 'impPct', 'segPct', 'advPct', 'espKg', 'fodPct', 'ivaPct', 'otrosKg', 'taraCajaLb', 'cartonSimpleLbFt2', 'cartonDobleLbFt2', 'taraBultoLb', 'taraBolsaLb'].includes(d.cfgart)) S.cfg[d.cfgart] = num(v); else S.cfg[d.cfgart] = v; clearTimeout(cfgArtT); cfgArtT = setTimeout(saveCfg, 600); return; }
+  if (d.pbus){ S.pq = t.value.trim(); const box = document.getElementById('plista'); if (box) box.innerHTML = provSub() === 'viajes' ? vViajes() : vProvLst(); const x = document.querySelector('[data-act="pbusclear"]'); if (x) x.hidden = !t.value; return; }
   if (d.cbus){ S.cq = t.value.trim(); const box = document.getElementById('clista'); if (box) box.innerHTML = vListaCompras(); const x = document.querySelector('[data-act="cbusclear"]'); if (x) x.hidden = !t.value; return; }
   if (d.cqbus && S.sheet && (S.sheet.kind === 'compra' || S.sheet.kind === 'conteoEq')){ const q = sinAcento(t.value.trim()); S.sheet.cqq = t.value.trim(); let vis = 0;
     document.querySelectorAll('.sheet .cpart[data-cqest]').forEach(el => { const ok = !q || el.dataset.cqest.includes(q); el.hidden = !ok; if (ok) vis++; });
@@ -4983,6 +4997,7 @@ document.addEventListener('focusout', e => { const t = e.target; if (!t || !['q'
 document.addEventListener('keydown', e => {
   const t = e.target;
   if (['q', 'qa', 'bq', 'bqa', 'cqbus'].includes(t.id) && e.key === 'Enter'){ e.preventDefault(); clearTimeout(qHistT); guardarBusqueda(t.value); t.blur(); return; }
+  if (t.id === 'pbus' && e.key === 'Enter'){ e.preventDefault(); t.blur(); return; }
   if (t.id === 'cbus' && e.key === 'Enter'){ e.preventDefault(); t.blur(); return; }
   if (t.dataset && t.dataset.qp){ if (e.key === 'Enter'){ e.preventDefault(); t.blur(); } else if (e.key === 'Escape'){ e.preventDefault(); S.qEdit = null; render(); } return; }
   if ((t.id === 'e-col' || t.id === 'e-tal') && (e.key === 'Enter' || e.key === ',')){
