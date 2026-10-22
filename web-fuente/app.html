@@ -1197,14 +1197,15 @@ async function buildPdf(){
         }
       }
       { const p0 = precio(a, tipo); const u = waUrl(c.contacto, `Hola, me interesa el estilo ${a.estilo}${p0 != null ? ' (' + money(p0) + ')' : ''} del catálogo ${c.titulo || ''}`.trim());
-        if (u){ doc.link(x, y, mw, ih, { url:u }); doc.setFont('helvetica','bold'); doc.setFontSize(8); const bt = 'Pedir por WhatsApp', bw = doc.getTextWidth(bt) + 7, bh = 6.2, bx = x + mw - bw - 2, by = y + ih - bh - 2;
-          doc.setFillColor(37,163,92); doc.roundedRect(bx, by, bw, bh, 3.1, 3.1, 'F'); doc.setTextColor(255,255,255); doc.text(bt, bx + bw / 2, by + 4.3, { align:'center' }); doc.link(bx, by, bw, bh, { url:u }); } }
-      const ty = y + ih + 5;
+        if (u) doc.link(x, y, mw, ih, { url:u }); var waU = u; }
+      const ty = y + ih + 5; let nw = cw;
+      if (waU){ doc.setFont('helvetica','bold'); doc.setFontSize(7.5); const bt = 'Pedir por WhatsApp', bw = doc.getTextWidth(bt) + 6, bh = 5, bx = x + cw - bw, by = ty + 2;
+        doc.setFillColor(37,163,92); doc.roundedRect(bx, by, bw, bh, 2.5, 2.5, 'F'); doc.setTextColor(255,255,255); doc.text(bt, bx + bw / 2, by + 3.5, { align:'center' }); doc.link(bx, by, bw, bh, { url:waU }); nw = cw - bw - 3; }
       doc.setFont('courier','bold'); doc.setFontSize(10); doc.setTextColor(27,27,27); doc.text(String(a.estilo || ''), x, ty);
       const p = precio(a, tipo);
       doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...acc); doc.text(p == null ? 'Consultar' : money(p), x + cw, ty + .5, { align:'right' });
       doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(40,40,40);
-      doc.text(doc.splitTextToSize((a.nombre || '') + (a.soloCatalogo ? ' · Bajo pedido' + (a.entregaDias ? ' (' + a.entregaDias + ')' : '') + (a.pedidoMin ? ' · mín. ' + a.pedidoMin : '') : ''), cw)[0] || '', x, ty + 5);
+      doc.text(doc.splitTextToSize((a.nombre || '') + (a.soloCatalogo ? ' · Bajo pedido' + (a.entregaDias ? ' (' + a.entregaDias + ')' : '') + (a.pedidoMin ? ' · mín. ' + a.pedidoMin : '') : ''), nw)[0] || '', x, ty + 5);
       doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(27,27,27);
       { const ls = doc.splitTextToSize('Tallas: ' + tallasPorColor(a), cw); doc.text(ls[0] || '', x, ty + 9.5);
         if (ls[1]){ doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(60,60,60); doc.text(ls.length > 2 ? ls[1].replace(/\s*\S*$/, '') + '…' : ls[1], x, ty + 13.5); } }
