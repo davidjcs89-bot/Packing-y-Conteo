@@ -1332,6 +1332,43 @@ async function importarN41(pdf, r){
    Busca la fila de encabezados (Estilo + Cantidad) y lee una fila por estilo. Columnas reconocidas:
    Estilo, Cantidad, Precio unitario (costo), Total (de la línea), Precio total / etiqueta (precio de etiqueta del proveedor),
    Color, Talla, Descripción. Sin color ni talla, el artículo queda "Sin color · Única". */
+async function plantillaExcel(){
+  try {
+    if (!window.ExcelJS) await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+    const wb = new ExcelJS.Workbook(); wb.creator = 'Packing-y-Conteo';
+    const ws = wb.addWorksheet('Factura', { views:[{ state:'frozen', ySplit:1 }] });
+    const cab = ['#', 'Estilo', 'Descripcion', 'Color', 'Talla', 'Cantidad', 'Precio Etiqueta', 'Precio Unitario', 'Total'];
+    ws.columns = [6, 18, 22, 16, 10, 11, 15, 16, 14].map(width => ({ width }));
+    const h = ws.addRow(cab); h.height = 22;
+    h.eachCell(c => { c.font = { bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0E7C66' } }; c.alignment = { vertical:'middle', horizontal:'center' }; });
+    const N = 300, lt = tipos();
+    const ls = wb.addWorksheet('Tipos', { state:'hidden' }); lt.forEach((t, i) => { ls.getCell(i + 1, 1).value = t; });
+    for (let r = 2; r <= N + 1; r++){
+      ws.getCell(r, 1).value = { formula:`IF(B${r}="","",ROW()-1)` };
+      ws.getCell(r, 9).value = { formula:`IF(OR(F${r}="",H${r}=""),"",F${r}*H${r})` };
+      if (lt.length) ws.getCell(r, 3).dataValidation = { type:'list', allowBlank:true, showErrorMessage:false, formulae:[`Tipos!$A$1:$A$${lt.length}`] };
+      ws.getCell(r, 6).dataValidation = { type:'whole', operator:'greaterThan', allowBlank:true, formulae:[0], showErrorMessage:true, errorTitle:'Cantidad', error:'Escribe un número entero mayor que 0' };
+      for (const k of [7, 8, 9]) ws.getCell(r, k).numFmt = '#,##0.00';
+      ws.getCell(r, 2).numFmt = '@';
+      for (const k of [1, 9]) { ws.getCell(r, k).font = { color:{ argb:'FF6B6B6B' } }; ws.getCell(r, k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFF2F2F2' } }; }
+    }
+    const tr = N + 2; ws.getCell(tr, 5).value = 'TOTAL'; ws.getCell(tr, 5).font = { bold:true };
+    ws.getCell(tr, 6).value = { formula:`SUM(F2:F${N + 1})` }; ws.getCell(tr, 9).value = { formula:`SUM(I2:I${N + 1})` }; ws.getCell(tr, 9).numFmt = '#,##0.00';
+    for (const k of [6, 9]) ws.getCell(tr, k).font = { bold:true };
+    const ins = wb.addWorksheet('Instrucciones'); ins.getColumn(1).width = 100;
+    [['Cómo llenar la plantilla', true], [''], ['• Una fila por estilo (o por estilo + color + talla si quieres separarlos).'], ['• Obligatorias: Estilo y Cantidad.'],
+     ['• Descripcion: el tipo de artículo (Collar, Pulsera, Blusa…). Puedes elegirlo de la lista o escribir uno nuevo; los nuevos se agregan al catálogo al importar.'],
+     ['• Color y Talla: déjalos vacíos si no aplican; el artículo queda "Sin color · Única". Varias tallas: S, M, L.'],
+     ['• Precio Unitario: tu costo por pieza, en la moneda del proveedor (yuanes o dólares).'], ['• Precio Etiqueta: el precio de la etiqueta del proveedor (opcional).'],
+     ['• Las columnas # y Total se calculan solas; no las escribas.'], ['• No cambies los nombres de las columnas de la primera fila.'], [''],
+     ['Luego en la app: Importar → Factura en Excel → Elegir factura en Excel.']].forEach(([t, b]) => { const c = ins.addRow([t]).getCell(1); if (b) c.font = { bold:true, size:14 }; });
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const name = `Plantilla importar ${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()} ${z(d.getHours())}h${z(d.getMinutes())}.xlsx`;
+    const buf = await wb.xlsx.writeBuffer();
+    await bajarArchivo({ filename:name, data:new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) });
+    toast('Plantilla lista: ' + name);
+  } catch (e) { if (e && e.code === 'declined') toast('Descarga cancelada'); else toast('No se pudo crear la plantilla: ' + ((e && e.message) || e)); }
+}
 async function importarExcel(file){
   S.parsing = true; S.importMsg = ''; render();
   try {
@@ -2355,7 +2392,8 @@ function vImport(){
         ${aiOff}` : `<div class="small muted">Elige todas las capturas de la factura en orden, de arriba hacia abajo. La IA lee cada fila: estilo, descripción, color, tallas, cantidad, costo unitario y total. Las filas repetidas entre capturas se descartan.</div>${aiOff}`}`
       : m === 'excel' ? `
       <button class="btn primary block" data-act="pickxls" ${S.parsing ? 'disabled' : ''}>${I.xls || I.pdf}${S.parsing ? 'Leyendo Excel…' : S.xlsName ? 'Elegir otro Excel' : 'Elegir factura en Excel'}</button>
-      ${S.xlsName ? `<div class="small muted">${esc(S.xlsName)}</div>` : `<div class="small muted">Archivo .xlsx o .csv con una fila por estilo. La app busca las columnas Estilo, Cantidad, Precio unitario (costo), Total y, si las hay, Color, Talla, Descripción y Precio de etiqueta.</div>`}`
+      ${S.xlsName ? `<div class="small muted">${esc(S.xlsName)}</div>` : `<div class="small muted">Archivo .xlsx o .csv con una fila por estilo. La app busca las columnas Estilo, Cantidad, Precio unitario (costo), Total y, si las hay, Color, Talla, Descripción y Precio de etiqueta.</div>`}
+      <button class="btn block" data-act="plantillaxls">${I.dl}Descargar plantilla</button>`
       : m === 'fotos' ? `
       <button class="btn primary block" data-act="pickshots" ${S.importing ? 'disabled' : ''}>${I.img}${nShots ? 'Agregar más fotos' : 'Elegir fotos del carrete'}</button>
       <div class="small muted">Una foto por prenda. Cada foto se vuelve un artículo del proveedor elegido; recórtala para dejar solo la prenda.</div>
@@ -4936,6 +4974,7 @@ document.addEventListener('click', async e => {
     case 'readinv': await readInvoice(); break;
     case 'clearinv': S.repAviso = ''; S.importMsgTipo = ''; S.invShots.forEach(x => URL.revokeObjectURL(x.url)); S.invShots = []; S.cands = S.cands.filter(c => !c.inv); S.invSum = null; S.importMsg = ''; render(); break;
     case 'airead': await aiRead(); break;
+    case 'plantillaxls': await plantillaExcel(); break;
     case 'addcand': S.cands.push({ key:uid(), on:true, tallaConv:true, estilo:'', nombre:'', costo:null, colores:[], tallas:[], src:'', page:1, foto:null }); render(); break;
     case 'doimport': await doImport(); break;
     case 'selall': S.catSel = null; render(); break;
