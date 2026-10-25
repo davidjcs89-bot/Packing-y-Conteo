@@ -72,7 +72,7 @@
        compras    -> la compra completa (solo administrador)
        recepciones -> lo necesario para contar (líneas sin costo, proveedor) + el estado del conteo
        config     -> configuración completa; config_pub -> la parte sin costos ni factores */
-  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId', 'precioEtiqueta', 'monedaEtiqueta'];
+  const PRIV_ART = ['costo', 'costoOrigen', 'moneda', 'tc', 'proveedorId', 'factura', 'stockFacturas', 'detalle', 'viajeId', 'precioEtiqueta', 'monedaEtiqueta', 'historial'];
   const REC_KEYS = ['contEq', 'contEmb', 'conteos', 'estadoEq', 'estadoEmb', 'recibido', 'recibidoEq', 'difEq', 'cambios', 'eqContadoAt', 'embContadoAt', 'estado', 'verificadaAt', 'reclamo'];
   const CFG_PUB = ['tipos', 'tiposRecientes', 'tallasExtra', 'tallasDef', 'coloresDef', 'coloresRec', 'fotosExtra', 'fechaModo', 'fechaTexto', 'subMen', 'subMay', 'origenDef', 'verMenudeo', 'verMayoreo', 'ord_arts', 'ord_bod', 'taraCajaLb', 'taraBultoLb', 'taraBolsaLb', 'cartonSimpleLbFt2', 'cartonDobleLbFt2'];
   const pick = (o, ks) => { const r = {}; for (const k of ks) if (o && o[k] !== undefined) r[k] = o[k]; return r; };
@@ -443,7 +443,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .ctp-dup{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}.ctp-pick{display:flex;flex-direction:column;gap:6px;overflow:auto;max-height:50vh}
 .sh-est[data-copyest]{cursor:pointer;-webkit-user-select:all;user-select:all}
 .rol-emp .solo-admin{display:none!important}
-.pbusstick{position:sticky;top:calc(var(--top) + env(safe-area-inset-top,0px));z-index:6;background:var(--bg);padding:8px 0;display:flex;gap:8px;align-items:center}.pbusstick .search{flex:1}.pnum{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font:600 12px/1 ui-monospace,monospace;flex:none}.ptot{display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 0}
+.pbusstick{position:sticky;top:calc(var(--top) + env(safe-area-inset-top,0px));z-index:6;background:var(--bg);padding:8px 0;display:flex;gap:8px;align-items:center}.pbusstick .search{flex:1}.histtab{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}.histtab th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;padding:4px 6px;border-bottom:1px solid var(--line)}.histtab td{padding:6px;border-bottom:1px solid var(--line)}.histtab tr.muted td{opacity:.55}.histtab td:first-child{white-space:nowrap}.pnum{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font:600 12px/1 ui-monospace,monospace;flex:none}.ptot{display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 0}
 .cbusbar{display:flex;flex-direction:column;gap:8px}.cord{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .cqstick{position:sticky;top:0;z-index:20;background:var(--bg);margin:-16px -16px 0;padding:10px 16px 8px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 10px -10px rgba(0,0,0,.35)}
 .sheet .sh-inner{max-width:480px;margin:0 auto;padding-block:16px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
@@ -2590,6 +2590,7 @@ function vSheet(){
         })()}
 </div>
         ${a.precioEtiqueta != null && !EMP() ? `<div class="small muted">Precio de etiqueta del proveedor: <b>${fmtCosto(+a.precioEtiqueta, a.monedaEtiqueta || 'USD')}</b></div>` : ''}
+        ${(a.historial || []).length && !EMP() ? `<details class="resdet solo-admin" ${(a.historial || []).length > 1 ? 'open' : ''}><summary>Historial de facturas · ${a.historial.length}</summary><table class="histtab"><thead><tr><th>Fecha</th><th>Factura</th><th>Pzs</th><th>Costo</th></tr></thead><tbody>${[...a.historial].reverse().map(h => `<tr${h.costoNoUsado ? ' class="muted"' : ''}><td>${h.at ? new Date(h.at).toLocaleDateString('es-EC', { day:'2-digit', month:'short', year:'2-digit' }) : '—'}</td><td>${esc(h.factura || '—')}</td><td class="mono">${h.cantidad ?? '—'}</td><td class="mono">${h.costoOrigen != null && h.moneda === 'RMB' ? fmtCosto(+h.costoOrigen, 'RMB') + (h.costo != null ? ' · ' : '') : ''}${h.costo != null ? fmtCosto(+h.costo, 'USD') : ''}${h.costoNoUsado ? ' <span class="small">(no usado)</span>' : ''}</td></tr>`).join('')}</tbody></table></details>` : ''}
         <div class="solo-admin">${vEnvio(a)}</div>
         <div class="section"><span class="label">Precio de venta</span>
         <div class="pricebox one">${pb('mayoreo','pMay','Mayoreo')}${pb('menudeo','pMen','Menudeo')}</div>
@@ -5544,6 +5545,29 @@ async function doImport(){
     if (!c.foto && c.raw) g.raws.push(c.raw);
     if (c.inv){ g.inv = true; g.cantidad += c.cantidad || 0; g.detalle.push(...(c.detalle || [])); }
   }
+  // Estilos que ya existen con otro costo: preguntar cuál costo se queda
+  const decCosto = new Map();
+  { const exDe = est => S.arts.find(a => a.proveedorId === S.importProv && (a.estilo || '').toUpperCase() === est);
+    const cambia = [...grupos.values()].map(g => ({ g, ex:exDe(g.est) })).filter(({ g, ex }) => { if (!ex || g.costo == null || ex.costo == null) return false;
+      if ((ex.moneda || 'USD') === mon && ex.costoOrigen != null) return Math.abs(+ex.costoOrigen - +g.costo) > 0.004;
+      const nu = toUsd(g.costo); return nu != null && Math.abs(+ex.costo - nu) > 0.004; });
+    const antes = ({ ex }) => ex.costoOrigen != null && ex.moneda ? fmt(+ex.costoOrigen, ex.moneda) : fmt(+ex.costo, 'USD');
+    const linea = x => `${x.g.est}: ${antes(x)} → ${fmt(+x.g.costo, mon)}`;
+    if (cambia.length){
+      const ej = cambia.slice(0, 4).map(linea).join(' · ') + (cambia.length > 4 ? ` · y ${cambia.length - 4} más` : '');
+      const r = await elegirOpcion('Costo distinto al anterior', `${cambia.length} ${cambia.length === 1 ? 'estilo ya existe' : 'estilos ya existen'} con otro costo. ${ej}`,
+        [{ v:'nuevo', t:'Usar el costo nuevo', d:'El de esta factura', pri:true }, { v:'anterior', t:'Mantener el costo anterior' }, ...(cambia.length > 1 ? [{ v:'uno', t:'Elegir uno por uno' }] : [])], 'Cancelar importación');
+      if (!r) return;
+      for (const x of cambia){
+        let v = r;
+        if (r === 'uno'){ v = await elegirOpcion(x.g.est + (x.g.nombre ? ' · ' + x.g.nombre : ''), `Costo anterior: ${antes(x)}${x.ex.factura ? ' (factura ' + x.ex.factura + ')' : ''}. Costo nuevo: ${fmt(+x.g.costo, mon)}${S.importFact ? ' (factura ' + S.importFact + ')' : ''}.`,
+            [{ v:'nuevo', t:'Usar ' + fmt(+x.g.costo, mon), pri:true }, { v:'anterior', t:'Mantener ' + antes(x) }], 'Cancelar importación');
+          if (!v) return; }
+        decCosto.set(x.g.est, v);
+      } } }
+  const histCon = (ex, ent) => { let h = [...((ex && ex.historial) || [])];
+    if (ex && !h.length && (ex.costo != null || ex.factura)) h.push({ factura:ex.factura || '', at:ex.creado || null, cantidad:ex.cantidad || null, costo:ex.costo ?? null, costoOrigen:ex.costoOrigen ?? null, moneda:ex.moneda || 'USD', tc:ex.tc || null });
+    h = h.filter(x => !ent.factura || x.factura !== ent.factura); h.push(ent); return h; };
   let nuevos = 0, act = 0, i = 0;
   const docsImp = S.cfg.respFact !== false ? [...(S.impMode === 'pdf' || S.pdf ? (S.pdfFile ? [S.pdfFile] : []) : []), ...(S.impMode === 'excel' && S.xlsFile ? [S.xlsFile] : []), ...S.invShots.map(x => x.file).filter(Boolean)] : [];
   const metaImp = { proveedorId:S.importProv, factura:(S.importFact || '').trim(), origen:'importacion' };
@@ -5563,15 +5587,17 @@ async function doImport(){
       const stkExtra = false && linStk.length && !yaEntro ? { stock:aplicar(ex ? ex.stock : {}, linStk), stockFacturas:uniq([...((ex && ex.stockFacturas) || []), factK]) } : {};
       const ci = linStk.length ? { artId:null, est:g.est, lineas:linStk, costo:g.costo, g } : null; if (ci) compraItems.push(ci);
       let artIdMov = ex ? ex.id : null;
+      const hEnt = { factura:(S.importFact || '').trim(), at:Date.now(), cantidad:g.cantidad || null, costo:toUsd(g.costo), costoOrigen:g.costo, moneda:mon, tc, ...(decCosto.get(g.est) === 'anterior' ? { costoNoUsado:true } : {}) };
       if (ex){
+        const cst = decCosto.get(g.est) === 'anterior' ? {} : { costo:toUsd(g.costo) ?? ex.costo, ...orig };
         const extra = g.inv ? { cantidad: ex.factura && ex.factura === S.importFact ? g.cantidad : (ex.cantidad || 0) + g.cantidad, detalle:g.detalle } : {};
-        await save('articulos', ex.id, { ...ex, costo:toUsd(g.costo) ?? ex.costo, ...orig, ...(g.etiqueta != null ? { precioEtiqueta:g.etiqueta, monedaEtiqueta:impMon() } : {}), ...(g.pMen != null ? { pMen:g.pMen } : {}), ...(g.pMay != null ? { pMay:g.pMay } : {}),
+        await save('articulos', ex.id, { ...ex, ...cst, historial:histCon(ex, hEnt), ...(g.etiqueta != null ? { precioEtiqueta:g.etiqueta, monedaEtiqueta:impMon() } : {}), ...(g.pMen != null ? { pMen:g.pMen } : {}), ...(g.pMay != null ? { pMay:g.pMay } : {}),
           factura:S.importFact || ex.factura, nombre:ex.nombre || g.nombre, colores:uniq([...(ex.colores||[]), ...g.colores]), tallas:uniq([...(ex.tallas||[]), ...g.tallas]),
           fotos:uniq([...(ex.fotos||[]), ...g.fotos]), ...extra, ...stkExtra, ejemplo:false }); act++;
       } else {
         artIdMov = uid();
         await save('articulos', artIdMov, { estilo:g.est, nombre:g.nombre, categoria:'', proveedorId:S.importProv, factura:S.importFact.trim(), costo:toUsd(g.costo), ...orig, ...(g.etiqueta != null ? { precioEtiqueta:g.etiqueta, monedaEtiqueta:impMon() } : {}),
-          pMen:g.pMen, pMay:g.pMay, colores:g.colores, tallas:g.tallas, fotos:g.fotos, creado:Date.now(), ejemplo:false, ...(g.inv ? { cantidad:g.cantidad, detalle:g.detalle } : {}), ...stkExtra }); nuevos++;
+          pMen:g.pMen, pMay:g.pMay, colores:g.colores, tallas:g.tallas, fotos:g.fotos, creado:Date.now(), historial:[hEnt], ejemplo:false, ...(g.inv ? { cantidad:g.cantidad, detalle:g.detalle } : {}), ...stkExtra }); nuevos++;
       }
       if (ci) ci.artId = artIdMov;
       if (stkExtra.stock){ try { await save('movimientos', uid(), { artId:artIdMov, estilo:g.est, proveedorId:S.importProv, tipo:'entrada', lineas:linStk, total:linStk.reduce((x, l) => x + l.cant, 0), motivo:'Importación de factura', factura:S.importFact || '', at:Date.now() }); } catch {} }
