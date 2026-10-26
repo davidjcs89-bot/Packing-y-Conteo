@@ -2368,11 +2368,11 @@ function cardArt(a, n, tot){
 function vPrecios(){
   const u = S.prUpd; const provs = S.provs.filter(p => S.arts.some(a => a.proveedorId === p.id && !a.ejemplo));
   if (!u) return `<div class="panel">
-      <div class="small muted">Cambia los precios de mayoreo y menudeo de varios estilos a la vez. Descarga la plantilla (ya trae tus estilos con sus precios actuales), cambia los precios que quieras y vuelve a subirla. Lo que dejes vacío no se cambia.</div>
+      <div class="small muted">Cambia el tipo de artículo y los precios de mayoreo y menudeo de varios estilos a la vez. Descarga la plantilla (ya trae tus estilos con su tipo y precios actuales), cambia lo que quieras y vuelve a subirla. Lo que dejes vacío no se cambia.</div>
       <label class="field"><span>Estilos en la plantilla</span><select class="inp" id="prProv" data-prprov="1"><option value="">Todos los proveedores</option>${provs.map(p => `<option value="${p.id}" ${S.prProv === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
-      <button class="btn block" data-act="plantillaprecios">${I.dl}Descargar plantilla de precios</button>
-      <button class="btn primary block" data-act="pickprecios" ${S.parsing ? 'disabled' : ''}>${I.xls || I.pdf}${S.parsing ? 'Leyendo Excel…' : 'Subir Excel con los precios'}</button>
-      <div class="small muted">Columnas: <b>Estilo</b>, <b>Mayoreo</b>, <b>Menudeo</b>. Si un estilo está en varios proveedores, usa la columna <b>Proveedor</b> para elegir cuál.</div>
+      <button class="btn block" data-act="plantillaprecios">${I.dl}Descargar plantilla</button>
+      <button class="btn primary block" data-act="pickprecios" ${S.parsing ? 'disabled' : ''}>${I.xls || I.pdf}${S.parsing ? 'Leyendo Excel…' : 'Subir Excel con los cambios'}</button>
+      <div class="small muted">Columnas: <b>Estilo</b>, <b>Tipo</b>, <b>Mayoreo</b>, <b>Menudeo</b>. Si un estilo está en varios proveedores, usa la columna <b>Proveedor</b> para elegir cuál.</div>
     </div>`;
   const sel = u.cambios.filter(c => c.on);
   return `<div class="panel"><div class="section-h"><h2>Vista previa</h2><span class="small muted">${esc(u.nombre)}</span></div>
@@ -2382,7 +2382,7 @@ function vPrecios(){
     ${u.cambios.length ? `<div style="display:flex;justify-content:space-between;align-items:center"><span class="label">Cambios · ${sel.length} de ${u.cambios.length} marcados</span><button class="btn ghost" data-act="prtodos" style="padding:6px 10px">${sel.length === u.cambios.length ? 'Desmarcar todos' : 'Marcar todos'}</button></div>
     ${u.cambios.map((c, i) => { const a = S.arts.find(x => x.id === c.id) || {}; const pv = (prov(a.proveedorId) || {}).nombre || '';
       const par = (lbl, o, n) => n == null ? `<span class="muted">${lbl} ${money(o)}</span>` : n === o ? `<span>${lbl} ${money(o)}</span>` : `<span>${lbl} <s>${money(o)}</s> → <b>${money(n)}</b></span>`;
-      return `<label class="prrow"><input type="checkbox" data-prsel="${i}" ${c.on ? 'checked' : ''}><div><div><span class="code">${esc(a.estilo || '')}</span> <span class="small muted">· ${esc([pv, a.nombre].filter(Boolean).join(' · '))}</span></div><div class="pv">${par('May', c.oMay, c.nMay)}${par('Men', c.oMen, c.nMen)}</div></div>${c.warn.map(w => `<div class="warn">${esc(w)}</div>`).join('')}</label>`; }).join('')}` : '<div class="small muted">No hay precios distintos a los actuales.</div>'}
+      return `<label class="prrow"><input type="checkbox" data-prsel="${i}" ${c.on ? 'checked' : ''}><div><div><span class="code">${esc(a.estilo || '')}</span> <span class="small muted">· ${esc(pv)}</span></div><div class="pv">${c.nTip ? `<span>Tipo <s>${esc(c.oTip || 'sin tipo')}</s> → <b>${esc(c.nTip)}</b></span>` : ''}${par('May', c.oMay, c.nMay)}${par('Men', c.oMen, c.nMen)}</div></div>${c.warn.map(w => `<div class="warn">${esc(w)}</div>`).join('')}</label>`; }).join('')}` : '<div class="small muted">No hay precios distintos a los actuales.</div>'}
     ${u.nf.length ? `<details class="resdet"><summary>No encontrados · ${u.nf.length}</summary><div class="small" style="padding:8px 2px">${u.nf.map(x => esc(x)).join(', ')}</div></details>` : ''}
     <div class="row2"><button class="btn block" data-act="prcancel">Cancelar</button><button class="btn primary block" data-act="praplicar" ${sel.length && !S.importing ? '' : 'disabled'}>${S.importing ? esc(S.importing) : `Aplicar ${sel.length} ${sel.length === 1 ? 'cambio' : 'cambios'}`}</button></div>`;
 }
@@ -2395,17 +2395,19 @@ async function plantillaPrecios(){
     const ws = wb.addWorksheet('Precios', { views:[{ state:'frozen', ySplit:1 }] });
     ws.columns = [18, 18, 18, 12, 12, 12].map(width => ({ width }));
     const h = ws.addRow(['Estilo', 'Proveedor', 'Tipo', 'Costo USD', 'Mayoreo', 'Menudeo']); h.height = 22;
-    h.eachCell((c, n) => { c.font = { bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:n >= 5 ? 'FF0E7C66' : 'FF6B6B6B' } }; c.alignment = { vertical:'middle', horizontal:'center' }; });
+    h.eachCell((c, n) => { c.font = { bold:true, color:{ argb:'FFFFFFFF' } }; c.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:n >= 5 || n === 3 ? 'FF0E7C66' : 'FF6B6B6B' } }; c.alignment = { vertical:'middle', horizontal:'center' }; });
+    const lt = uniq([...tipos(), ...arts.map(a => String(a.nombre || '').trim()).filter(Boolean)]); const lsT = wb.addWorksheet('Tipos', { state:'hidden' }); lt.forEach((t, i) => { lsT.getCell(i + 1, 1).value = t; });
     for (const a of arts){ const r = ws.addRow([a.estilo, (prov(a.proveedorId) || {}).nombre || '', a.nombre || '', cb(a) ?? null, precio(a, 'mayoreo'), precio(a, 'menudeo')]);
-      r.getCell(1).numFmt = '@'; for (const k of [4, 5, 6]) r.getCell(k).numFmt = '#,##0.00'; for (const k of [1, 2, 3, 4]) r.getCell(k).font = { color:{ argb:'FF555555' } }; }
+      r.getCell(1).numFmt = '@'; for (const k of [4, 5, 6]) r.getCell(k).numFmt = '#,##0.00'; for (const k of [1, 2, 4]) r.getCell(k).font = { color:{ argb:'FF555555' } };
+      if (lt.length) r.getCell(3).dataValidation = { type:'list', allowBlank:true, showErrorMessage:false, formulae:[`Tipos!$A$1:$A$${lt.length}`] }; }
     ws.autoFilter = { from:'A1', to:'F1' };
     const ins = wb.addWorksheet('Instrucciones'); ins.getColumn(1).width = 100;
-    [['Cómo actualizar precios', true], [''], ['• Cambia solo las columnas Mayoreo y Menudeo (en dólares).'], ['• Si dejas una celda vacía, ese precio no se cambia.'], ['• Puedes borrar las filas que no quieras cambiar.'],
-     ['• No cambies el Estilo. La columna Proveedor sirve para distinguir estilos repetidos entre proveedores.'], ['• Costo USD y Tipo son solo de referencia; no se importan.'],
-     ['• Los precios que cambies quedan fijos: ya no se recalculan con el múltiplo del proveedor.'], [''], ['Luego en la app: Importar → Actualizar precios → Subir Excel con los precios. Verás una vista previa antes de guardar.']]
+    [['Cómo actualizar tipo y precios', true], [''], ['• Puedes cambiar las columnas Tipo, Mayoreo y Menudeo (precios en dólares).'], ['• Tipo: elige de la lista o escribe uno nuevo; los nuevos se agregan al catálogo.'], ['• Si dejas una celda vacía, ese dato no se cambia.'], ['• Puedes borrar las filas que no quieras cambiar.'],
+     ['• No cambies el Estilo. La columna Proveedor sirve para distinguir estilos repetidos entre proveedores.'], ['• Costo USD es solo de referencia; no se importa.'],
+     ['• Los precios que cambies quedan fijos: ya no se recalculan con el múltiplo del proveedor.'], [''], ['Luego en la app: Importar → Actualizar tipo y precios → Subir Excel con los cambios. Verás una vista previa antes de guardar.']]
       .forEach(([t, b]) => { const c = ins.addRow([t]).getCell(1); if (b) c.font = { bold:true, size:14 }; });
     const d = new Date(), z = n => String(n).padStart(2, '0');
-    const name = `Plantilla precios ${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()} ${z(d.getHours())}h${z(d.getMinutes())}.xlsx`;
+    const name = `Plantilla actualizar ${z(d.getDate())}-${z(d.getMonth() + 1)}-${d.getFullYear()} ${z(d.getHours())}h${z(d.getMinutes())}.xlsx`;
     await bajarArchivo({ filename:name, data:new Blob([await wb.xlsx.writeBuffer()], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) });
     toast('Plantilla lista: ' + name);
   } catch (e) { if (e && e.code === 'declined') toast('Descarga cancelada'); else toast('No se pudo crear la plantilla: ' + ((e && e.message) || e)); }
@@ -2424,40 +2426,46 @@ async function importarPrecios(file){
     let hi = -1, col = {};
     for (let i = 0; i < Math.min(F.length, 20) && hi < 0; i++){ const h = (F[i] || []).map(norm); const find = re => h.findIndex(x => re.test(x));
       const e = find(/^(estilo|style|modelo|codigo|sku|ref(erencia)?)$/), y = find(/mayoreo|^may$|wholesale/), n = find(/menudeo|^men$|retail|pvp|minorista/);
-      if (e >= 0 && (y >= 0 || n >= 0)){ hi = i; col = { e, y, n, p:find(/^proveedor|^supplier/) }; } }
-    if (hi < 0) throw new Error('No encontré la fila de encabezados con "Estilo" y "Mayoreo" o "Menudeo"');
+      const tp = find(/^(tipo|tipo de articulo|descripcion|categoria)$/);
+      if (e >= 0 && (y >= 0 || n >= 0 || tp >= 0)){ hi = i; col = { e, y, n, tp, p:find(/^proveedor|^supplier/) }; } }
+    if (hi < 0) throw new Error('No encontré la fila de encabezados con "Estilo" y "Mayoreo", "Menudeo" o "Tipo"');
     const nm = v => { if (v == null || v === '') return null; if (typeof v === 'number') return v; const x = parseFloat(String(v).replace(/[^0-9.,-]/g, '').replace(',', '.')); return isNaN(x) ? null : x; };
     const cambios = [], nf = []; let iguales = 0; const vistos = new Set();
     for (const r of F.slice(hi + 1)){
       const est = String(r[col.e] ?? '').trim().toUpperCase().replace(/\s+/g, ''); if (!est) continue;
-      const nMay0 = col.y >= 0 ? nm(r[col.y]) : null, nMen0 = col.n >= 0 ? nm(r[col.n]) : null; if (nMay0 == null && nMen0 == null) continue;
+      const nMay0 = col.y >= 0 ? nm(r[col.y]) : null, nMen0 = col.n >= 0 ? nm(r[col.n]) : null; const nTip0 = col.tp >= 0 ? String(r[col.tp] ?? '').trim().replace(/\s+/g, ' ') : '';
+      if (nMay0 == null && nMen0 == null && !nTip0) continue;
       let arts = S.arts.filter(a => !a.ejemplo && String(a.estilo || '').toUpperCase().replace(/\s+/g, '') === est);
       const pn = col.p >= 0 ? norm(r[col.p]) : ''; if (pn && arts.length > 1){ const f = arts.filter(a => norm((prov(a.proveedorId) || {}).nombre) === pn); if (f.length) arts = f; }
       if (!arts.length){ nf.push(est); continue; }
       for (const a of arts){ if (vistos.has(a.id)) continue; vistos.add(a.id);
         const oMay = precio(a, 'mayoreo'), oMen = precio(a, 'menudeo');
         const nMay = nMay0 != null && nMay0 !== oMay ? nMay0 : null, nMen = nMen0 != null && nMen0 !== oMen ? nMen0 : null;
-        if (nMay == null && nMen == null){ iguales++; continue; }
+        const oTip = String(a.nombre || '').trim(); const nTip = nTip0 && sinAcento(nTip0) !== sinAcento(oTip) ? ([...tipos(), ...S.arts.map(x => String(x.nombre || '').trim())].find(t => t && sinAcento(t) === sinAcento(nTip0)) || nTip0) : null;
+        if (nMay == null && nMen == null && (!nTip || nTip === oTip)){ iguales++; continue; }
         const fy = nMay ?? oMay, fn = nMen ?? oMen, c0 = cb(a); const warn = [];
         if (fy != null && fn != null && fn <= fy) warn.push(`El menudeo (${money(fn)}) no es mayor que el mayoreo (${money(fy)})`);
         if (c0 != null && ((nMay != null && nMay < c0) || (nMen != null && nMen < c0))) warn.push(`Precio por debajo del costo (${money(c0)})`);
         if (arts.length > 1) warn.push(`El estilo está en ${arts.length} proveedores; se cambian todos. Usa la columna Proveedor para elegir uno.`);
-        cambios.push({ id:a.id, oMay, oMen, nMay, nMen, warn, on:true }); } }
+        if (nTip && !tipos().some(t => sinAcento(t) === sinAcento(nTip))) warn.push(`"${nTip}" es un tipo nuevo; se agregará al catálogo`);
+        cambios.push({ id:a.id, oMay, oMen, nMay, nMen, oTip, nTip:nTip && nTip !== oTip ? nTip : null, warn, on:true }); } }
     S.prUpd = { nombre:file.name, cambios, nf:uniq(nf), iguales };
   } catch (e) { toast('No se pudo leer el Excel: ' + ((e && e.message) || e)); }
   finally { S.parsing = false; render(); }
 }
 async function aplicarPrecios(){
   const u = S.prUpd; if (!u) return; const sel = u.cambios.filter(c => c.on); if (!sel.length) return;
-  let n = 0, err = 0; progStart('Actualizando precios', sel.length);
+  let n = 0, err = 0; progStart('Actualizando artículos', sel.length);
   try {
     for (const c of sel){ const a = S.arts.find(x => x.id === c.id); n++; S.importing = `Guardando ${n} de ${sel.length}…`; progStep(`Precio ${n} de ${sel.length}`, a ? a.estilo : ''); render();
       if (!a) continue;
-      try { await save('articulos', a.id, { ...a, ...(c.nMay != null ? { pMay:c.nMay } : {}), ...(c.nMen != null ? { pMen:c.nMen } : {}) }); } catch { err++; }
+      const tip = c.nTip ? { nombre:c.nTip, ...(!String(a.categoria || '').trim() || sinAcento(a.categoria) === sinAcento(a.nombre) ? { categoria:c.nTip } : {}) } : {};
+      try { await save('articulos', a.id, { ...a, ...(c.nMay != null ? { pMay:c.nMay } : {}), ...(c.nMen != null ? { pMen:c.nMen } : {}), ...tip }); } catch { err++; }
       progDone(); }
   } finally { progEnd(); S.importing = ''; }
+  { const nuevosT = uniq(sel.map(c => c.nTip).filter(t => t && !tipos().some(x => sinAcento(x) === sinAcento(t)))); if (nuevosT.length){ S.cfg.tipos = uniq([...tipos(), ...nuevosT]); try { await saveCfg(); } catch {} } }
   S.prUpd = null; render(); try { programarSyncPv(); } catch {}
-  toast(err ? `${sel.length - err} precios actualizados · ${err} no se pudieron guardar` : `${sel.length} ${sel.length === 1 ? 'artículo actualizado' : 'artículos actualizados'}`);
+  toast(err ? `${sel.length - err} artículos actualizados · ${err} no se pudieron guardar` : `${sel.length} ${sel.length === 1 ? 'artículo actualizado' : 'artículos actualizados'}`);
 }
 function vImport(){
   const opts = S.provs.map(p => `<option value="${p.id}" ${S.importProv === p.id ? 'selected' : ''}>${esc(p.nombre)}${p.moneda === 'RMB' ? ' · ¥' : ''}</option>`).join('') + '<option value="__new">+ Crear proveedor…</option>';
@@ -2470,7 +2478,7 @@ function vImport(){
   const aiOff = !S.sampleImg ? '<div class="note err small">La lectura con IA no está disponible en esta vista. Abre la app desde claude.ai y acepta el permiso cuando lo pida.</div>' : '';
   return `
     <div class="seg imp5" role="group" aria-label="Origen de los artículos">
-      <button data-imp="factcap" aria-pressed="${m === 'factcap'}">Factura en capturas</button><button data-imp="fotos" aria-pressed="${m === 'fotos'}">Fotos de prendas</button><button data-imp="pdf" aria-pressed="${m === 'pdf'}">Factura PDF</button><button data-imp="excel" aria-pressed="${m === 'excel'}">Factura Excel</button><button data-imp="precios" aria-pressed="${m === 'precios'}">Actualizar precios</button></div>
+      <button data-imp="factcap" aria-pressed="${m === 'factcap'}">Factura en capturas</button><button data-imp="fotos" aria-pressed="${m === 'fotos'}">Fotos de prendas</button><button data-imp="pdf" aria-pressed="${m === 'pdf'}">Factura PDF</button><button data-imp="excel" aria-pressed="${m === 'excel'}">Factura Excel</button><button data-imp="precios" aria-pressed="${m === 'precios'}">Actualizar tipo y precios</button></div>
     ${m === 'precios' ? vPrecios() : `<div class="panel">
       <div class="row2">
         <label class="field"><span>Proveedor</span><select class="inp" id="impProv" data-bind="importProv"><option value="">Elegir…</option>${opts}</select></label>
