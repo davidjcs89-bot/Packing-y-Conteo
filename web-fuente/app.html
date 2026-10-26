@@ -113,6 +113,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .addrow{display:flex;gap:8px;margin-top:8px}.addrow .inp{flex:1}.addrow .btn{flex:none;width:auto;padding:0 16px}
 .chip .x{border:0;background:none;padding:0 0 0 2px;color:var(--muted);font-size:15px;line-height:1}
 .hscroll{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-2px;padding:2px}
+@media (pointer:fine){.hscroll,.ctabs,.hr-cands{cursor:grab;scrollbar-width:thin;scrollbar-color:transparent transparent}.hscroll:hover,.ctabs:hover,.hr-cands:hover{scrollbar-color:var(--line) transparent}.hscroll::-webkit-scrollbar,.ctabs::-webkit-scrollbar,.hr-cands::-webkit-scrollbar{display:block;height:6px}.hscroll:hover::-webkit-scrollbar-thumb,.ctabs:hover::-webkit-scrollbar-thumb,.hr-cands:hover::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}.hs-drag{cursor:grabbing!important;user-select:none}.hs-drag *{pointer-events:none}}
 .hscroll::-webkit-scrollbar{display:none}
 .search{position:relative}
 .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--muted)}
@@ -4608,6 +4609,19 @@ async function exportarExcel(todos, opts){
 
 /* ---------- eventos ---------- */
 document.addEventListener('click', e => { if (swBlockClick){ e.preventDefault(); e.stopPropagation(); swBlockClick = false; } }, true);
+/* Filas con scroll horizontal (filtros): en PC se mueven con la rueda del mouse o arrastrando */
+(() => { const SEL = '.hscroll, .ctabs, .hr-cands'; let drag = null, moved = false;
+  document.addEventListener('wheel', e => { const el = e.target.closest && e.target.closest(SEL); if (!el || el.scrollWidth <= el.clientWidth + 1) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey){ const max = el.scrollWidth - el.clientWidth; const prev = el.scrollLeft;
+      el.scrollLeft = Math.max(0, Math.min(max, prev + e.deltaY)); if (el.scrollLeft !== prev) e.preventDefault(); } }, { passive:false });
+  document.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || e.button !== 0) return; const el = e.target.closest && e.target.closest(SEL);
+    if (!el || el.scrollWidth <= el.clientWidth + 1 || e.target.closest('input, select, textarea')) return; drag = { el, x:e.clientX, sl:el.scrollLeft }; moved = false; });
+  document.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x; if (!moved && Math.abs(dx) > 5){ moved = true; drag.el.classList.add('hs-drag'); }
+    if (moved) drag.el.scrollLeft = drag.sl - dx; });
+  const fin = () => { if (!drag) return; const el = drag.el; drag = null; if (moved) setTimeout(() => el.classList.remove('hs-drag'), 0); };
+  document.addEventListener('pointerup', fin); document.addEventListener('pointercancel', fin);
+  document.addEventListener('click', e => { if (moved){ moved = false; e.stopPropagation(); e.preventDefault(); } }, true);
+})();
 document.addEventListener('click', async e => {
   if (S.selMode && S.tab === 'arts'){ const w = e.target.closest('.artwrap'); if (w){ const id = w.dataset.aid; S.selIds.has(id) ? S.selIds.delete(id) : S.selIds.add(id); S.selConfirm = false; render(); return; } }
   const sd = e.target.closest('[data-swdel]');
