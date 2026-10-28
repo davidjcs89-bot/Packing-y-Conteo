@@ -3393,7 +3393,12 @@ async function decodificarCodigo(cv){
 // Deja el texto buscado seleccionado en el buscador (para ver qué se buscó y reemplazarlo con la siguiente búsqueda)
 function selBuscador(ids){ const go = () => { const el = ids.map(id => document.getElementById(id)).find(x => x && !x.hidden && x.offsetParent !== null); if (!el) return;
   try { if (document.activeElement && document.activeElement !== el && document.activeElement.blur) document.activeElement.blur(); el.focus({ preventScroll:true }); el.setSelectionRange(0, el.value.length); } catch { try { el.select(); } catch {} } };
-  go(); setTimeout(go, 60); }
+  // reintentos solo si el foco quedó en otro lado (botón de escanear, cuerpo de la página), nunca si ya está escribiendo en otro campo
+  const otraVez = () => { const ae = document.activeElement; const el = ids.map(id => document.getElementById(id)).find(x => x && !x.hidden); if (!el || ae === el) return; if (ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]')) return; go(); };
+  go(); setTimeout(otraVez, 60); setTimeout(otraVez, 350); setTimeout(otraVez, 900);
+  // Si la búsqueda vino de la cámara o de elegir una foto, el navegador devuelve el foco al botón al volver: se vuelve a seleccionar el texto
+  const alVolver = () => setTimeout(otraVez, 30); window.addEventListener('focus', alVolver); setTimeout(() => window.removeEventListener('focus', alVolver), 8000);
+  document.querySelectorAll('.qscan, [data-scan]').forEach(b => { if (b === document.activeElement) b.blur(); }); }
 function buscarCon(v, how){
   v = String(v || '').trim(); if (!v) return;
   const t = scanTarget; const vv = v.toUpperCase().replace(/\s+/g, '');
