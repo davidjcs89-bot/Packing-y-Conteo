@@ -5436,7 +5436,8 @@ document.addEventListener('focusout', e => { const t = e.target; if (!t || !['q'
   const v = (t.value || '').trim(); if (v.length >= 2){ clearTimeout(qHistT); guardarBusqueda(v); } });
 document.addEventListener('keydown', e => {
   const t = e.target;
-  if (['q', 'qa', 'bq', 'bqa', 'cqbus'].includes(t.id) && e.key === 'Enter'){ e.preventDefault(); clearTimeout(qHistT); guardarBusqueda(t.value);
+  // Lectoras que terminan con Tab (o Tab del teclado) en el buscador: se toma como buscar, en vez de pasar el foco al botón de escanear
+  if (['q', 'qa', 'bq', 'bqa', 'cqbus'].includes(t.id) && (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey && t.value.trim()))){ e.preventDefault(); clearTimeout(qHistT); guardarBusqueda(t.value);
     // En PC (mouse/pistola lectora) el buscador queda activo con el texto seleccionado: la siguiente lectura lo reemplaza sola. En el teléfono se cierra el teclado.
     selBuscador([t.id]); return; }
   if (t.id === 'pbus' && e.key === 'Enter'){ e.preventDefault(); t.blur(); return; }
