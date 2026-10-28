@@ -5167,7 +5167,9 @@ document.addEventListener('focusout', e => { const t = e.target; if (!t || !['q'
   const v = (t.value || '').trim(); if (v.length >= 2){ clearTimeout(qHistT); guardarBusqueda(v); } });
 document.addEventListener('keydown', e => {
   const t = e.target;
-  if (['q', 'qa', 'bq', 'bqa', 'cqbus'].includes(t.id) && e.key === 'Enter'){ e.preventDefault(); clearTimeout(qHistT); guardarBusqueda(t.value); t.blur(); return; }
+  if (['q', 'qa', 'bq', 'bqa', 'cqbus'].includes(t.id) && e.key === 'Enter'){ e.preventDefault(); clearTimeout(qHistT); guardarBusqueda(t.value);
+    // En PC (mouse/pistola lectora) el buscador queda activo con el texto seleccionado: la siguiente lectura lo reemplaza sola. En el teléfono se cierra el teclado.
+    if (matchMedia('(pointer:fine)').matches){ const id = t.id; setTimeout(() => { const el = document.getElementById(id); if (el){ el.focus(); try { el.select(); } catch {} } }, 0); } else t.blur(); return; }
   if (t.id === 'pbus' && e.key === 'Enter'){ e.preventDefault(); t.blur(); return; }
   if (t.id === 'cbus' && e.key === 'Enter'){ e.preventDefault(); t.blur(); return; }
   if (t.dataset && t.dataset.qp){ if (e.key === 'Enter'){ e.preventDefault(); t.blur(); } else if (e.key === 'Escape'){ e.preventDefault(); S.qEdit = null; render(); } return; }
