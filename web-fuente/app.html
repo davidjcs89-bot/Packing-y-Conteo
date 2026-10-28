@@ -130,7 +130,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .qhist .chip.on{border-color:var(--accent);background:var(--accent-soft)}
 .qhist .linkbtn{font-size:12px;color:var(--muted)}
 .qgo{display:none;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:6px;height:40px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-ink);font:inherit;font-weight:700;font-size:15px}.qgo svg{width:18px;height:18px}
-.search:focus-within:has(input:not([hidden]):not(:placeholder-shown)) + .qgo{display:flex}
+.search:has(input:not([hidden]):not(:placeholder-shown)) + .qgo{display:flex}
 .qclear{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;border:0;background:var(--line);color:var(--ink);font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
 
 /* Tarjetas de artículo */
@@ -3131,8 +3131,9 @@ async function decodificarCodigo(cv){
   return null;
 }
 // Deja el texto buscado seleccionado en el buscador (para ver qué se buscó y reemplazarlo con la siguiente búsqueda)
-function selBuscador(ids){ setTimeout(() => { const el = ids.map(id => document.getElementById(id)).find(x => x && !x.hidden && x.offsetParent !== null); if (!el) return;
-  try { el.focus({ preventScroll:true }); el.setSelectionRange(0, el.value.length); } catch { try { el.select(); } catch {} } }, 60); }
+function selBuscador(ids){ const go = () => { const el = ids.map(id => document.getElementById(id)).find(x => x && !x.hidden && x.offsetParent !== null); if (!el) return;
+  try { if (document.activeElement && document.activeElement !== el && document.activeElement.blur) document.activeElement.blur(); el.focus({ preventScroll:true }); el.setSelectionRange(0, el.value.length); } catch { try { el.select(); } catch {} } };
+  go(); setTimeout(go, 60); }
 function buscarCon(v, how){
   v = String(v || '').trim(); if (!v) return;
   const t = scanTarget; const vv = v.toUpperCase().replace(/\s+/g, '');
@@ -4657,7 +4658,7 @@ document.addEventListener('click', async e => {
       else if (d2.tpnuevo){ const v = await dlgTexto('Nuevo tipo de artículo', '', 'Agregar'); if (v){ S.cfg.tipos = uniq([...tipos(), v]); await saveCfg(); render(); toast(`"${v}" agregado al catálogo`); } }
       return; } }
   { const go = e.target.closest('[data-qgo]'); if (go){ const sb = go.previousElementSibling; const inp = sb && [...sb.querySelectorAll('input')].find(x => !x.hidden);
-      if (inp){ const v = inp.value.trim(); if (v && inp.id !== 'cbus'){ clearTimeout(qHistT); guardarBusqueda(v); } inp.blur(); } return; } }
+      if (inp){ const v = inp.value.trim(); if (v && inp.id !== 'cbus'){ clearTimeout(qHistT); guardarBusqueda(v); } if (inp.id === 'cbus') inp.blur(); else selBuscador([inp.id]); } return; } }
   { const cf = e.target.closest('[data-cfil]'); if (cf && S.sheet){ S.sheet.fil = cf.dataset.cfil; render(); return; } }
   { const oc = e.target.closest('[data-otroct]'); if (oc && S.sheet){ const [tipo, cid, aid] = oc.dataset.otroct.split('|'); const sh = S.sheet;
       const c = tipo === 'eq' ? (S.compras || []).find(x => x.id === cid) : sh.c; const l = c && (c.lineas || []).find(x => x.artId === aid); const a = S.arts.find(x => x.id === aid) || {};
@@ -4686,9 +4687,9 @@ document.addEventListener('click', async e => {
   if (d.clean){ const idx = +d.clean.split(':')[1]; abrirLimpieza([{ ed:true, idx }], S.sheet); return; }
   if (d.clrm !== undefined){ S.cl.boxes.splice(+d.clrm, 1); S.cl.out = null; S.cl.borrado = null; S.cl.recorte = null; S.cl.ver = 'antes'; render(); return; }
   if (d.clver){ const cl = S.cl; cl.ver = d.clver; if (d.clver === 'recorte' && cl.recorte) cl.out = cl.recorte; else if (d.clver === 'despues' && cl.borrado) cl.out = cl.borrado; render(); return; }
-  if (d.cqhist && S.sheet && (S.sheet.kind === 'compra' || S.sheet.kind === 'conteoEq')){ S.sheet.cqq = d.cqhist; guardarBusqueda(d.cqhist); render(); return; }
-  if (d.qhist){ S.q = d.qhist; clearTimeout(qHistT); guardarBusqueda(d.qhist); render(); return; }
-  if (d.bqhist){ S.bq = d.bqhist; clearTimeout(qHistT); guardarBusqueda(d.bqhist); render(); return; }
+  if (d.cqhist && S.sheet && (S.sheet.kind === 'compra' || S.sheet.kind === 'conteoEq')){ S.sheet.cqq = d.cqhist; guardarBusqueda(d.cqhist); render(); selBuscador(['cqbus']); return; }
+  if (d.qhist){ S.q = d.qhist; clearTimeout(qHistT); guardarBusqueda(d.qhist); render(); selBuscador(['q', 'qa']); return; }
+  if (d.bqhist){ S.bq = d.bqhist; clearTimeout(qHistT); guardarBusqueda(d.bqhist); render(); selBuscador(['bq', 'bqa']); return; }
   if (d.addprov){ S.sheet = { kind:'addmenu', pid:d.addprov }; render(); return; }
   if (d.addop){ const pid = S.sheet.pid;
     if (d.addop === 'mano'){ S.reveal.delete('ed'); openEdit(null, presetProv(pid)); return; }
